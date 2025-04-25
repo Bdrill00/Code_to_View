@@ -1,6 +1,5 @@
-Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmpc8iq4daq.pyomo.bar']
+Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmpjxoqd86i.pyomo.bar']
 
-  >>> BARON option tolrel not recognized. Option will be ignored.
 ===========================================================================
  BARON version 25.3.19. Built: WIN-64 2025-03-19 22:18:01         
  Running on machine BENLT
@@ -22,23 +21,18 @@ Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\
  For NLP: IPOPT, FILTERSQP
 ===========================================================================
  Doing local search
- Solving bounding LP
- Starting multi-start local search
- Done with local search
-===========================================================================
-  Iteration       Time (s)     Mem   Lower bound     Upper bound   Progress
-          1           0.47    19MB     1.00000        0.100000E+52    NA
-*        12           0.98    77MB     1.00000         6.00000        NA
-       1000           2.19    77MB     1.00000         6.00000        0.00%
+ Preprocessing found feasible solution with value 1.00000
+ Problem solved during preprocessing
+ Lower bound is    1.00000
 
-               *** Max. allowable BaR iterations reached ***  
+                         *** Normal completion ***            
 
- Wall clock time:                     2.24
- Total CPU time used:                 2.19
+ Wall clock time:                     0.04
+ Total CPU time used:                 0.02
 
- Total no. of BaR iterations:    1000
- Best solution found at node:      12
- Max. no. of nodes in memory:      22
+ Total no. of BaR iterations:      -1
+ Best solution found at node:      -1
+ Max. no. of nodes in memory:       0
  
  All done
 ===========================================================================

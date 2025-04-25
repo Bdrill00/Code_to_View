@@ -90,7 +90,7 @@ model.Ixr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.Ixi = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.I2xr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.I2xi = Var(range(n), bounds=(-20000, 20000), initialize=0)
-# model.St = Var(range(n), bounds=(-20000000, 20000000), initialize = 0)
+model.St = Var(range(n), bounds=(-20000000, 20000000), initialize = 0)
 
 aj = [5000000, 6000000, 7000000, 8000000, 9000000, 10000000]
 bj = [1, 2, 3, 4, 5, 6]
@@ -101,10 +101,10 @@ model.sj = Var(range(sizeSj), within = pyo.Binary)
 
 
 # Define objective function
-# model.obj = Objective(expr = 1) #when i chose this, it always chose the largest value
+model.obj = Objective(expr = 1) #when i chose this, it always chose the largest value
 # model.obj = Objective(expr = sum((bj[j])*model.sj[j] for j in range(sizeSj))) #when this was constraint, it wouldn't stop iterating
 
-model.obj = Objective(expr = bj[0]*model.sj[0] + bj[1]*model.sj[1] + bj[2]*model.sj[2] + bj[3]*model.sj[3] + bj[4]*model.sj[4] + bj[5]*model.sj[5])
+# model.obj = Objective(expr = bj[0]*model.sj[0] + bj[1]*model.sj[1] + bj[2]*model.sj[2] + bj[3]*model.sj[3] + bj[4]*model.sj[4] + bj[5]*model.sj[5])
 
 def equality_constraint1(model, i):
     return -model.Islackr[i] + sum(Gl12[i,j]*(model.V1r[j]-model.V2r[j]) for j in range(n)) - sum(Bl12[i,j]*(model.V1i[j]-model.V2i[j]) for j in range(n))==0
@@ -152,30 +152,25 @@ def equality_constraint14(model, i):
 def equality_constraint15(model):
     return sum(model.sj[j] for j in range(sizeSj)) == 1
 
-#select the right transformer
-# def ineq_constr1(model):
-#     return 7100000 <= (sum((aj[j])*model.sj[j] for j in range(sizeSj))) #change this so it does it iteratively
+# select the right transformer
+def ineq_constr1(model):
+    return 7100000 <= (sum((aj[j])*model.sj[j] for j in range(sizeSj))) #change this so it does it iteratively
 
 # def ineq_constr2(model,i):
 #     return model.St[i] >=0
 # #Power flow constraint Sabc = Sa + Sb + Sc
 
-# def ineq_constr3(model, i):
-#     realP = (sum(model.V2r[j]*model.Ixr[j]+model.V2i[j]*model.Ixi[j]) for j in range(n))
-#     imagQ = (sum(model.V2i[j]*model.Ixr[j]-model.V2r[j]*model.Ixi[j]) for j in range(n))
-#     rhs = (sum(((aj[j])**2)*model.sj[j] for j in range(sizeSj)))
-#     return realP**2 + imagQ**2 <= rhs
-# did not like this, threw error for unsupported operand type
-def ineq_constr3(model, i): #tried dividing by 1e3 to get less iterations in making these numbers smaller
-    realP = (model.V2r[0]*model.Ixr[0] + model.V2i[0]*model.Ixi[0] + model.V2r[1]*model.Ixr[1] + model.V2i[1]*model.Ixi[1] + \
-        model.V2r[2]*model.Ixr[2] + model.V2i[2]*model.Ixi[2])/1e3
-    
-    imagQ = ((model.V2i[0]*model.Ixr[0] - model.V2r[0]*model.Ixi[0]) + (model.V2i[1]*model.Ixr[1] - model.V2r[1]*model.Ixi[1]) + \
-        (model.V2i[2]*model.Ixr[2] - model.V2r[2]*model.Ixi[2]))/1e3
-        
-    rhs = (sum(((aj[j]/1e3)**2)*model.sj[j] for j in range(sizeSj)))
-    
-    return realP**2 + imagQ**2 <= rhs
+# # def ineq_constr3(model, i):
+#     # realP = (sum(model.V2r[j]*model.Ixr[j]+model.V2i[j]*model.Ixi[j]) for j in range(n))
+#     # imagQ = (sum(model.V2i[j]*model.Ixr[j]-model.V2r[j]*model.Ixi[j]) for j in range(n))
+#     # rhs = (sum(((aj[j])**2)*model.sj[j] for j in range(sizeSj)))
+#     # return realP**2 + imagQ**2 <= model.St**2
+# # # did not like this, threw error for unsupported operand type
+
+
+# def ineq_constr3(model, i): #tried dividing by 1e3 to get less iterations in making these numbers smaller    
+#     return (sum(model.V2r[j]*model.Ixr[j] + model.V2i[j]*model.Ixi[j] for j in range(n)))**2 \
+#         + (sum(model.V2i[j]*model.Ixr[j] - model.V2r[j]*model.Ixi[j] for j in range(n)))**2  == sum(model.St[j] for j in range(n))
 
 #Sabc = Sa + Sb + Sc find magnitude 
 
@@ -195,14 +190,14 @@ model.constraint13 = Constraint(model.n, rule=equality_constraint13)
 model.constraint14 = Constraint(model.n, rule=equality_constraint14)
 model.constraint15 = Constraint(rule=equality_constraint15)
 
-# model.ineq_constr1 = Constraint( rule=ineq_constr1)
+model.ineq_constr1 = Constraint( rule=ineq_constr1)
 # model.ineq_constr2 = Constraint(model.n, rule=ineq_constr2)
-model.ineq_constr3 = Constraint(model.n, rule=ineq_constr3)
+# model.ineq_constr3 = Constraint(model.n, rule=ineq_constr3)
 # model.ineq_constr2 = Constraint(rule=ineq_constr2)
 solver = SolverFactory('baron')
 solver.options['MaxIter'] = 1000
 solver.options['PrLevel'] = 5 
-solver.options['TolRel'] = 1e-6  
+# solver.options['TolRel'] = 1e-6  
 
 result = solver.solve(model, tee=True, logfile="baron_prac_data.txt")  # 'tee=True' will display solver output in the terminal
 
@@ -230,7 +225,6 @@ sj_var = np.array([pyo.value(model.sj[i]) for i in range(sizeSj)]).reshape(-1,1)
 # print(Stot_val)
 
 print("Transformer selection vector: ", sj_var)
-
 
 
 
