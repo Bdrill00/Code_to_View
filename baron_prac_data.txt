@@ -1,4 +1,4 @@
-Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmpkfu7e1wr.pyomo.bar']
+Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmpc8iq4daq.pyomo.bar']
 
   >>> BARON option tolrel not recognized. Option will be ignored.
 ===========================================================================
@@ -27,14 +27,14 @@ Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\
  Done with local search
 ===========================================================================
   Iteration       Time (s)     Mem   Lower bound     Upper bound   Progress
-          1           0.53    19MB     1.00000        0.100000E+52    NA
-*        12           1.06    77MB     1.00000         6.00000        NA
-       1000           2.25    77MB     1.00000         6.00000        0.00%
+          1           0.47    19MB     1.00000        0.100000E+52    NA
+*        12           0.98    77MB     1.00000         6.00000        NA
+       1000           2.19    77MB     1.00000         6.00000        0.00%
 
                *** Max. allowable BaR iterations reached ***  
 
- Wall clock time:                     2.31
- Total CPU time used:                 2.25
+ Wall clock time:                     2.24
+ Total CPU time used:                 2.19
 
  Total no. of BaR iterations:    1000
  Best solution found at node:      12
