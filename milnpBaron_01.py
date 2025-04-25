@@ -229,7 +229,7 @@ sj_var = np.array([pyo.value(model.sj[i]) for i in range(sizeSj)]).reshape(-1,1)
 # Stot_val = np.sum(St_vals)
 # print(Stot_val)
 
-
+print("Transformer selection vector: ", sj_var)
 
 
 
