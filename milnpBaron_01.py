@@ -90,14 +90,13 @@ model.Ixr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.Ixi = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.I2xr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.I2xi = Var(range(n), bounds=(-20000, 20000), initialize=0)
-model.St = Var(range(n), bounds=(-20000000, 20000000), initialize = 0)
+# model.St = Var(range(n), bounds=(-20000000, 20000000), initialize = 0)
 
 aj = [5000000, 6000000, 7000000, 8000000, 9000000, 10000000]
 bj = [1, 2, 3, 4, 5, 6]
 # bj = [-6,-5,-4,-3,-2,-1]
 sizeSj = len(aj)
 model.sj = Var(range(sizeSj), within = pyo.Binary)
-
 
 
 # Define objective function
@@ -152,20 +151,22 @@ def equality_constraint14(model, i):
 def equality_constraint15(model):
     return sum(model.sj[j] for j in range(sizeSj)) == 1
 
-# select the right transformer
-def ineq_constr1(model):
-    return 7100000 <= (sum((aj[j])*model.sj[j] for j in range(sizeSj))) #change this so it does it iteratively
+# # select the right transformer
+# def ineq_constr1(model):
+#     return 7100000 <= (sum((aj[j])*model.sj[j] for j in range(sizeSj))) #change this so it does it iteratively
 
 # def ineq_constr2(model,i):
 #     return model.St[i] >=0
 # #Power flow constraint Sabc = Sa + Sb + Sc
 
-# # def ineq_constr3(model, i):
-#     # realP = (sum(model.V2r[j]*model.Ixr[j]+model.V2i[j]*model.Ixi[j]) for j in range(n))
-#     # imagQ = (sum(model.V2i[j]*model.Ixr[j]-model.V2r[j]*model.Ixi[j]) for j in range(n))
-#     # rhs = (sum(((aj[j])**2)*model.sj[j] for j in range(sizeSj)))
-#     # return realP**2 + imagQ**2 <= model.St**2
-# # # did not like this, threw error for unsupported operand type
+def ineq_constr3(model):
+    realP = sum(model.V2r[j]*model.Ixr[j]+model.V2i[j]*model.Ixi[j] for j in range(n))
+    imagQ = sum(model.V2i[j]*model.Ixr[j]-model.V2r[j]*model.Ixi[j] for j in range(n))
+    rhs = sum(((aj[j])**2)*model.sj[j] for j in range(sizeSj))
+    return realP**2 + imagQ**2 <= rhs
+    # return realP**2 + imagQ**2 <= model.St**2
+
+# did not like this, threw error for unsupported operand type
 
 
 # def ineq_constr3(model, i): #tried dividing by 1e3 to get less iterations in making these numbers smaller    
@@ -190,13 +191,16 @@ model.constraint13 = Constraint(model.n, rule=equality_constraint13)
 model.constraint14 = Constraint(model.n, rule=equality_constraint14)
 model.constraint15 = Constraint(rule=equality_constraint15)
 
-model.ineq_constr1 = Constraint( rule=ineq_constr1)
+# model.ineq_constr1 = Constraint( rule=ineq_constr1)
 # model.ineq_constr2 = Constraint(model.n, rule=ineq_constr2)
-# model.ineq_constr3 = Constraint(model.n, rule=ineq_constr3)
+model.ineq_constr3 = Constraint(rule=ineq_constr3)
 # model.ineq_constr2 = Constraint(rule=ineq_constr2)
 solver = SolverFactory('baron')
-solver.options['MaxIter'] = 1000
-solver.options['PrLevel'] = 5 
+# solver.options['MaxIter'] = 1000
+solver.options['PrLevel'] = 5
+solver.options['MaxTime'] = -1
+# solver.options['DeltaTerm'] = 1
+# solver.options['DeltaT'] = -200
 # solver.options['TolRel'] = 1e-6  
 
 result = solver.solve(model, tee=True, logfile="baron_prac_data.txt")  # 'tee=True' will display solver output in the terminal
@@ -286,3 +290,5 @@ print("Apparent power at Transformer: ", Stot)
 # plt.legend()
 # plt.grid()
 # plt.show()
+
+print(range(sizeSj))
