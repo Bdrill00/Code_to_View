@@ -1,4 +1,4 @@
-Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmpc6p_7_vx.pyomo.bar']
+Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmp8vcj264v.pyomo.bar']
 
 ===========================================================================
  BARON version 25.3.19. Built: WIN-64 2025-03-19 22:18:01         
@@ -22,22 +22,19 @@ Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\
 ===========================================================================
  Doing local search
  Solving bounding LP
- Starting multi-start local search
- Done with local search
-===========================================================================
-  Iteration       Time (s)     Mem   Lower bound     Upper bound   Progress
-          1           0.62    19MB     1.00000        0.100000E+52    NA
-*         3           0.70    76MB     1.00000         1.00000        NA
-          3           0.70    76MB     1.00000         1.00000      100.00%
+ Problem solved during preprocessing
+ Problem is infeasible
 
                          *** Normal completion ***            
 
- Wall clock time:                     0.74
- Total CPU time used:                 0.70
+                       *** Problem is infeasible ***
 
- Total no. of BaR iterations:       3
- Best solution found at node:       3
- Max. no. of nodes in memory:       2
+ Wall clock time:                     0.06
+ Total CPU time used:                 0.03
+
+ Total no. of BaR iterations:      -1
+ Best solution found at node:      -3
+ Max. no. of nodes in memory:       0
  
  All done
 ===========================================================================
