@@ -1,4 +1,4 @@
-Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmp8vcj264v.pyomo.bar']
+Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmpzx3x28cx.pyomo.bar']
 
 ===========================================================================
  BARON version 25.3.19. Built: WIN-64 2025-03-19 22:18:01         
@@ -22,19 +22,27 @@ Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\
 ===========================================================================
  Doing local search
  Solving bounding LP
- Problem solved during preprocessing
- Problem is infeasible
+ Starting multi-start local search
+ Preprocessing found feasible solution with value 5.00000
+ Done with local search
+===========================================================================
+  Iteration       Time (s)     Mem   Lower bound     Upper bound   Progress
+          1           0.44    19MB     1.00000         5.00000        NA
+      25271          30.33    77MB     1.00000         5.00000       19.54%
+      50358          60.25    77MB     1.00000         5.00000       19.54%
+      58454+         90.09    77MB     1.00000         5.00000       19.87%
+      58653+        119.97    77MB     2.00000         5.00000       21.49%
+*     58698         130.12    77MB     4.00000         4.00000       21.49%
+      58698         130.12    77MB     4.00000         4.00000      100.00%
 
                          *** Normal completion ***            
 
-                       *** Problem is infeasible ***
+ Wall clock time:                   130.73
+ Total CPU time used:               130.12
 
- Wall clock time:                     0.06
- Total CPU time used:                 0.03
-
- Total no. of BaR iterations:      -1
- Best solution found at node:      -3
- Max. no. of nodes in memory:       0
+ Total no. of BaR iterations:   58698
+ Best solution found at node:   58698
+ Max. no. of nodes in memory:     142
  
  All done
 ===========================================================================
