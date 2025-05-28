@@ -35,14 +35,11 @@ model.constraint0 = Constraint(rule = equality_constraint0)
 model.constraint1 = Constraint(rule = equality_constraint1)
 
 solver = SolverFactory('baron')
-# solver.options['MaxIter'] = 1000
 solver.options['PrLevel'] = 5
 solver.options['MaxTime'] = -1
-# solver.options['DeltaTerm'] = 1
-# solver.options['DeltaT'] = -200
-# solver.options['TolRel'] = 1e-6  
 
-result = solver.solve(model, tee=True, logfile="baron_prac_data.txt")  # 'tee=True' will display solver output in the terminal
+
+result = solver.solve(model, tee=True, keepfiles=True, logfile="baron_prac_data.txt")  
 
 # Display results
 model.display()
