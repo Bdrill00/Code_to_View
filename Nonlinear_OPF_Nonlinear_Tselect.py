@@ -112,14 +112,14 @@ model.I2xi = Var(range(n), bounds=(-2000, 2000), initialize=0)
 #aj represents the rating of transformer j with sj being 1 when its selected and 0 when not selected
 aj = [6000000, 7000000, 8000000, 9000000, 10000000]
 sizeSj = len(aj)
-model.sj = Var(range(sizeSj), within = pyo.Binary)
+
+model.sj = Var(range(sizeSj), domain = pyo.Binary)
 
 #So the goal of this optimization problem besides testing my knowledge of McCormick linearization of nonlinearities
 #is to solve the OPF with an additional transformer selection
-#In rewriting this code, the first thing I would like to try is to linearize the OPF with McCormick
-#From there I will add in the transformer selection and see what happens
+#This objective is specifically to find the smallest transformer size which satisfies constraints
 
-model.obj = Objective(expr = 1)
+model.obj = Objective(expr = aj[0]*model.sj[0]+aj[1]*model.sj[1]+aj[2]*model.sj[2]+aj[3]*model.sj[3]+aj[4]*model.sj[4])
 
 #For Pyomo, we want to define our functions and then call them to be modeled
 #In looking at it now, some of the functions could be removed and iteratively created if we were to desire to do more with this
@@ -172,6 +172,16 @@ def equality_constraint14(model, i):
     return sum(Gl34[i,j]*(model.V4i[j]-model.V3i[j]) for j in range(n)) + sum(Bl34[i,j]*(model.V4r[j] - model.V3r[j]) for j in range(n)) + \
         (PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)  ==0
 
+#Here I am going to add the constraints for the transformer selection
+#First being that we may only choose one transformer (sum of binary variables corresponding to a transformer selection == 1)
+def equality_constraint15(model):
+    return sum(model.sj[j] for j in range(sizeSj)) == 1
+
+def ineq_constr1(model):
+    realP = sum(model.V2r[j]*model.Ixr[j] + model.V2i[j]*model.Ixi[j] for j in range(n))
+    imagQ = sum(model.V2i[j]*model.Ixr[j] - model.V2r[j]*model.Ixi[j] for j in range(n))
+    rhs = sum((aj[j]**2) * model.sj[j] for j in range(sizeSj))
+    return realP**2 + imagQ**2 <= rhs
 #adding the constraints to the model
 model.constraint1 = Constraint(model.n, rule=equality_constraint1)
 model.constraint2 = Constraint(model.n, rule=equality_constraint2)
@@ -187,7 +197,8 @@ model.constraint11 = Constraint(model.n, rule=equality_constraint11)
 model.constraint12 = Constraint(model.n, rule=equality_constraint12)
 model.constraint13 = Constraint(model.n, rule=equality_constraint13)
 model.constraint14 = Constraint(model.n, rule=equality_constraint14)
-    
+model.constraint15 = Constraint(rule = equality_constraint15)
+model.constraint16 = Constraint(rule = ineq_constr1)
 #choosing the solver and some settings to adjust how long the code will run for
 solver = SolverFactory('baron')
 # solver.options['MaxIter'] = 1000
@@ -252,12 +263,15 @@ Sb = pyomo.environ.sqrt(Pb**2 + Qb**2)
 Sc = pyomo.environ.sqrt(Pc**2 + Qc**2)
 Stot = pyomo.environ.sqrt(Ptot**2 + Qtot**2)
 
-Stot = Sa + Sb + Sc
+# Stot = Sa + Sb + Sc
 print("Apparent per phase power at Transformer: ", Sa, "and", Sb, "and", Sc)
 print("Apparent power at Transformer: ", Stot)
 
-#Notes:
-#I have just run the OPF problem.  From here I am going to add in a dummy variable 'z0' and 'z1' to replace the nonlinearities with
-#Nonlinearity being (P*V4r + Q*V4i)/(V4r^2 + V4i^2) and (P*V4i - Q*V4r)/(V4r^2 + V4i^2)
+"""
+Notes:
+We know from the nonlinear OPF that it works.  I want to see if I add back in the nonlinear transformer selection still iterates indefinitely
+When I say minimize aj = [6000000, 7000000, 8000000, 9000000, 10000000] it chooses 10, despite the power being 7.2 and the minimal choice being 8
+I am not sure why, I am going to try to individually list the xj variables so
+"""
 
 print(Vlower)
