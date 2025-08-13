@@ -73,15 +73,17 @@ def initFunc():
         0,0,0,0,0,0,
         -Zupper, -Zupper, -Zupper, -Zupper, -Zupper, -Zupper       
     ]).reshape(-1,1)
-    limLen = upper.size
     origUpper = upper.copy()
     origLower = lower.copy()
     obj = ['V4r', 'V4i', 'w', 'v', 'z0', 'z1']
     sense0 = ['minimize', 'maximize']
     phase = [0,1,2]
-    return PL,QL,sV,limLen,Vupper,Vlower,Gl12,Bl12,Gtr,Bti,Gl34,Bl34,Vsr,Vsi,nt,upper,lower,origLower,origUpper,obj,sense0,phase
+    return PL,QL,sV,Vupper,Vlower,Gl12,Bl12,Gtr,Bti,Gl34,Bl34,Vsr,Vsi,nt,upper,lower,origLower,origUpper,obj,sense0,phase
     
-def build_model():
+def opf(opfinput):
+    start_build = time.time()
+    obj, phase,sense0, upper,lower = opfinput
+    # obj, sense0, upper, lower =opfinput
     model = ConcreteModel()
     model.n = pyo.RangeSet(0, 2)
     model.V1r = Var(range(sV), bounds=(-9000, 9000), initialize=Vupper)
@@ -106,7 +108,7 @@ def build_model():
     model.y1 = Var(range(sV), bounds=(-8.7e9, 8.7e9))
     model.w = Var(range(sV), bounds=(0, 5800000))
     model.v = Var(range(sV), bounds=(0, 5800000))
-    # model.obj = Objective(expr = getattr(model, obj)[phase], sense=sense0)
+    model.obj = Objective(expr = getattr(model, obj)[phase], sense=sense0)
     # model.obj = Objective(expr = sum(model.z0[j]+model.z1[j]+model.w[j]+model.v[j]+model.V4r[j]+model.V4i[j] for j in range(sV)), sense= sense0)
     def equality_constraint1(model, i): #Real and imaginary current at node 1
         return -model.Islackr[i] + \
@@ -191,86 +193,83 @@ def build_model():
     model.constraint16a = Constraint(model.n, rule = equality_constraint16a)
     model.constraint16b = Constraint(model.n, rule = equality_constraint16b)
     model.constraint16c = Constraint(model.n, rule = equality_constraint16c)
-    ConstraintList0 = ['quadMcConstraint0', 'quadMcConstraint1', 'quadMcConstraint2']
-    ConstraintList1 = ['quadMcConstraint3', 'quadMcConstraint4', 'quadMcConstraint5']
-    ConstraintList2 = ['ineq_constr0', 'ineq_constr1', 'ineq_constr2'] #Per phase bilinearity constraint of z*V4r^2 = z*w = x0
-    ConstraintList3 = ['ineq_constr3', 'ineq_constr4', 'ineq_constr5'] #Per phase bilinearity constraint of z*V4i^2 = z*v = y0
-    ConstraintList4 = ['ineq_constr6', 'ineq_constr7', 'ineq_constr8'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
-    ConstraintList5 = ['ineq_constr9', 'ineq_constr10', 'ineq_constr11'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
-    for name in ConstraintList0 + ConstraintList1 + ConstraintList2 + ConstraintList3 + ConstraintList4 + ConstraintList5:
+    Constraint_List0 = ['quadMcConstraint0', 'quadMcConstraint1', 'quadMcConstraint2']
+    Constraint_List1 = ['quadMcConstraint3', 'quadMcConstraint4', 'quadMcConstraint5']
+    Constraint_List2 = ['ineq_constr0', 'ineq_constr1', 'ineq_constr2'] #Per phase bilinearity constraint of z*V4r^2 = z*w = x0
+    Constraint_List3 = ['ineq_constr3', 'ineq_constr4', 'ineq_constr5'] #Per phase bilinearity constraint of z*V4i^2 = z*v = y0
+    Constraint_List4 = ['ineq_constr6', 'ineq_constr7', 'ineq_constr8'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
+    Constraint_List5 = ['ineq_constr9', 'ineq_constr10', 'ineq_constr11'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
+    for name in Constraint_List0 + Constraint_List1 + Constraint_List2 + Constraint_List3 + Constraint_List4 + Constraint_List5:
         setattr(model, name, ConstraintList())
     for i in range(sV):
         constraints = QuadMcCor(model.V4r[i], model.w[i], XU = upper[0:3,0][i], XL = lower[0:3,0][i])    #quadratic mccormick for V4r i iterating per phase
         for c in constraints:
-            getattr(model, ConstraintList0[i]).add(c) 
+            getattr(model, Constraint_List0[i]).add(c) 
         constraints = QuadMcCor(model.V4i[i], model.v[i], XU = upper[3:6,0][i], XL = lower[3:6,0][i])    #quadratic mccormick for V4i i iterating per phase
         for c in constraints:
-            getattr(model, ConstraintList1[i]).add(c)
+            getattr(model, Constraint_List1[i]).add(c)
         constraints = McCormick(model.z0[i], model.w[i], model.x0[i], XU = upper[12:15,0][i], XL = lower[12:15,0][i], YU = upper[6:9,0][i], YL = lower[6:9,0][i])  #McCormick for z*V4r^2 = z*w =x0
         for c in constraints:
-            getattr(model, ConstraintList2[i]).add(c)
+            getattr(model, Constraint_List2[i]).add(c)
         constraints = McCormick(model.z0[i], model.v[i], model.y0[i], XU = upper[12:15,0][i], XL = lower[12:15,0][i], YU = upper[9:12,0][i], YL = lower[9:12,0][i])   #McCormick for z*V4i^2 = z*v= y0
         for c in constraints:
-            getattr(model, ConstraintList3[i]).add(c)    
+            getattr(model, Constraint_List3[i]).add(c)    
         constraints = McCormick(model.z1[i], model.w[i], model.x1[i], XU = upper[-3:][i], XL = lower[-3:][i], YU = upper[6:9,0][i], YL = lower[6:9,0][i])  #McCormick for z*V4r^2 = z*w =x0
         for c in constraints:
-            getattr(model, ConstraintList4[i]).add(c)
+            getattr(model, Constraint_List4[i]).add(c)
         constraints = McCormick(model.z1[i], model.v[i], model.y1[i], XU = upper[-3:][i], XL = lower[-3:][i], YU = upper[9:12,0][i], YL = lower[9:12,0][i])   #McCormick for z*V4i^2 = z*v= y0
         for c in constraints:
-            getattr(model, ConstraintList5[i]).add(c)
-    model.obj = Objective(expr = 0)
-    return model
-def solve_opf(model, obj, phase, sense):
-    # obj, phase,sense0, upper,lower = opfinput
-    # obj, sense0, upper, lower =opfinput
-    model.obj.sense = minimize if sense == 'minimize' else maximize
+            getattr(model, Constraint_List5[i]).add(c)
+    end_build = time.time()
+    start_solve = time.time()
     solver = SolverFactory('baron')
     results = solver.solve(model, tee=False)
+    end_solve = time.time()
     # model.display()
     return{
         "task": obj,
-        "objective": model.obj()
+        "objective": model.obj(),
+        "start_build": start_build,
+        "end_build": end_build,
+        "start_solve": start_solve,
+        "end_solve": end_solve
     }
-def update_bounds(model,upper,lower):
-    model.ConstraintList0
-    for i in range(limLen):
-        model.upper[i] = upper[i]
-        model.lower[i] = lower[i]
+    
 def makeInput():
     opfinput=[]
     for name in obj:
         for r in phase:
-            opfinput.append((name,phase[r],sense0[0]))
-            opfinput.append((name,phase[r],sense0[1]))
+            opfinput.append((name,phase[r],sense0[0],upper,lower))
+            opfinput.append((name,phase[r],sense0[1],upper,lower))
     return opfinput
-def timedif(start, end):
-    diff = end-start
-    return diff
 # def makeInput():
 #     opfinput=[]
 #     opfinput.append(('minimize',sense0[0],upper,lower))
 #     opfinput.append(('maximize',sense0[1],upper,lower))
 #     return opfinput
+
+def timedif(start, end):
+    diff = end-start
+    return diff
 if __name__ == '__main__':
-    (PL,QL,sV,limLen,Vupper,Vlower,Gl12,Bl12,Gtr,Bti,Gl34,Bl34,
+    (PL,QL,sV,Vupper,Vlower,Gl12,Bl12,Gtr,Bti,Gl34,Bl34,
      Vsr,Vsi,nt,upper,lower,origLower,origUpper,obj,sense0,phase) = initFunc()
     iterTime = []
-    model = build_model()
     task = makeInput()
-    update_bounds(model, upper, lower)
-    # print(type(task))
-    # print(len(task))
     count = 0
     for item in task:
         solverRes=[]
-        model.obj.set_value(getattr(model, item[0])[item[1]])
-        model.obj.sense = minimize if item[2] == 'minimize' else maximize
-        start_time = time.time()
-        solve.solve(model,tee = False)
-        end_time = time.time()
-        iterTime[item] = timedif(start_time, end_time)
+        solverRes = opf(item)
+        buildMod = timedif(solverRes['start_build'], solverRes['end_build'])
+        solveMod = timedif(solverRes['start_solve'], solverRes['end_solve'])
+        iterTime.append(buildMod+solveMod)
+        print("Build Model Time: ", buildMod, 'seconds')
+        print("Solve Model Time: ", solveMod, 'seconds')
+        # print(f"Build Time for Iteration {count}: {buildMod:.4f} seconds")
+        # print(f"Solve Time for Iteration {count}: {solveMod:.4f} seconds")
+        # print(f"Tot Iteration {count}: {iterTime[count]:.4f} seconds")
         count=count+1
-        print(f"Iteration {count}: {iterTime[item]:.4f} seconds")
+        
         print(count)
         
     # opf(task)
