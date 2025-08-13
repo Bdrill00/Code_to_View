@@ -95,7 +95,7 @@ model.V2i = Var(range(n), bounds=(-20000, 20000), initialize = 0)
 model.V3r = Var(range(n), bounds=(-20000, 20000), initialize=12000)
 model.V3i = Var(range(n), bounds=(-20000, 20000), initialize = 0)
 model.V4r = Var(range(n), bounds=(-20000, 20000), initialize=12000)
-model.V4i = Var(range(n), bounds=(-20000, 20000), initialize = 0)
+model.V4i = Var(range(n), bounds=(-20000, 20000), initialize = 1)
 model.Islackr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.Islacki = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.Ixr = Var(range(n), bounds=(-20000, 20000), initialize=0)
@@ -103,31 +103,22 @@ model.Ixi = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.I2xr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.I2xi = Var(range(n), bounds=(-20000, 20000), initialize=0)
 
-model.z0 = Var(range(n), bounds = (-1500, 1500), initialize = 0)
-model.y0 = Var(range(n), bounds = (-10000000000, 10000000000), initialize = 0)
-model.x0 = Var(range(n), bounds = (-10000000000, 10000000000), initialize = 0)
-model.z1 = Var(range(n), bounds = (-1500, 1500), initialize = 0)
+model.z0 = Var(range(n), bounds = (-1500, 1500), initialize = 1)
+model.y0 = Var(range(n), bounds = (-10000000000000, 10000000000000), initialize = 0)
+model.x0 = Var(range(n), bounds = (-10000000000000, 10000000000000), initialize = 0)
+model.z1 = Var(range(n), bounds = (-1500, 1500), initialize = 1)
 model.y1 = Var(range(n), bounds = (-10000000000, 10000000000), initialize = 0)
 model.x1 = Var(range(n), bounds = (-10000000000, 10000000000), initialize = 0)
-model.w = Var(range(n), bounds = (0, 6000000), initialize = 0)
-model.v = Var(range(n), bounds = (0, 6000000), initialize = 0)
+model.w = Var(range(n), bounds = (0, 600000000000), initialize = 0)
+model.v = Var(range(n), bounds = (0, 600000000000), initialize = 0)
 
-model.XMc0 = Var(range(xmc), bounds = (-20000000, 20000000), initialize = 0)
-model.XMc1 = Var(range(xmc), bounds = (-20000000, 20000000), initialize = 0)
-model.XMc2 = Var(range(xmc), bounds = (-20000000, 20000000), initialize = 0)
-model.XMc3 = Var(range(xmc), bounds = (-20000000, 20000000), initialize = 0)
+model.XMc0 = Var(range(xmc), bounds = (-200000000, 200000000), initialize = 0)
+model.XMc1 = Var(range(xmc), bounds = (-200000000, 200000000), initialize = 0)
+model.XMc2 = Var(range(xmc), bounds = (-200000000, 200000000), initialize = 0)
+model.XMc3 = Var(range(xmc), bounds = (-200000000, 200000000), initialize = 0)
 
-
-
-# model.P = Var(range(n), bounds = (-1000000000, 1000000000), initialize=0)
-
-# model.St = Var(range(n), bounds=(-20000000, 20000000), initialize = 0)
-
-# aj = [5000000, 6000000, 7000000, 8000000, 9000000, 10000000]
 aj = [6000000, 7000000, 8000000, 9000000, 10000000]
-# bj = [1, 2, 3, 4, 5, 6]
 bj = [1, 2, 3, 4, 5]
-# bj = [-6,-5,-4,-3,-2,-1]
 sizeSj = len(aj)
 model.sj = Var(range(sizeSj), within = pyo.Binary)
 
@@ -173,27 +164,27 @@ def equality_constraint12(model, i):
 
 def equality_constraint13(model, i):
     return sum(Gl34[i,j]*(model.V4r[j]-model.V3r[j]) for j in range(n)) -sum(Bl34[i,j]*(model.V4i[j] - model.V3i[j]) for j in range(n)) + \
-        model.z0[i]==0 #(PL*model.V4r[i] + QL*model.V4i[i])/(model.V4r[i]**2 + model.V4i[i]**2)
+        model.z0[i]==0 
 def equality_constraint13a(model, i):
-    return (PL*model.V4r[i] + QL*model.V4i[i]) == model.x0[i] + model.y0[i] #(model.V4r[i]**2 + model.V4i[i]**2)
-def equality_constraint13b(model, i):
-    return model.x0[i] == model.z0[i]*model.w[i] #do mccormick
-def equality_constraint13c(model, i):
-    return model.y0[i] == model.z0[i]*model.v[i] #do mccormick
-def equality_constraint13d(model, i):
-    return model.w[i] == model.V4r[i]**2
-def equality_constraint13e(model, i):
-    return model.v[i] == model.V4i[i]**2
+    return (PL*model.V4r[i] + QL*model.V4i[i])/(model.V4r[i]**2 + model.V4i[i]**2)  == model.z0[i]
+# def equality_constraint13b(model, i):
+#     return model.x0[i] == model.z0[i]*model.w[i] #do mccormick
+# def equality_constraint13c(model, i):
+#     return model.y0[i] == model.z0[i]*model.v[i] #do mccormick
+# def equality_constraint13d(model, i):
+#     return model.w[i] == model.V4r[i]**2
+# def equality_constraint13e(model, i):
+#     return model.v[i] == model.V4i[i]**2
 
 def equality_constraint14(model, i):
     return sum(Gl34[i,j]*(model.V4i[j]-model.V3i[j]) for j in range(n)) + sum(Bl34[i,j]*(model.V4r[j] - model.V3r[j]) for j in range(n)) + \
-        model.z1[i] == 0 #(PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)==0
+        model.z1[i] == 0 
 def equality_constraint14a(model, i):
-    return (PL*model.V4i[i] - QL*model.V4r[i]) == model.x1[i] + model.y1[i]
-def equality_constraint14b(model, i):
-    return model.x1[i] == model.z1[i]*model.w[i]
-def equality_constraint14c(model, i):
-    return model.y1[i] == model.z1[i]*model.v[i]
+    return (PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)  == model.z1[i]
+# def equality_constraint14b(model, i):
+#     return model.x1[i] == model.z1[i]*model.w[i]
+# def equality_constraint14c(model, i):
+#     return model.y1[i] == model.z1[i]*model.v[i]
         
 #make sure we only select one transformer
 def equality_constraint15(model):
@@ -219,56 +210,7 @@ def QuadMcCor(x, y, XU, XL):
         y >= 2*x*XL - XL**2,
         y <= x*XU - XL*XU + XL*x
     ]
-# def McCormick(model, x, y, z, XU, XL, YU, YL):
-#     return[
-#         getattr(model, z) >= XU*getattr(model, y) + getattr(model, x)*YU - XU*YU,
-#         getattr(model, z) <= XU*getattr(model, y) - XU*YL + getattr(model, x)*YL,
-#         getattr(model, z) <= getattr(model, x)*YU - XL*YU + XL*getattr(model, y),
-#         getattr(model, z) >= getattr(model, x)*YL + XL*getattr(model, y) - XL*YL
-#     ]    
-# def ineq_constr4(model, i):
-#     return model.XMc0[i] >= VU[i]*model.Ixr[i] + model.V2r[i]*IU[i] - VU[i]*IU[i]
-# def ineq_constr5(model, i):
-#     return model.XMc0[i] <= VU[i]*model.Ixr[i] - VU[i]*IL[i] + model.V2r[i]*IL[i]
-# def ineq_constr6(model, i):
-#     return model.XMc0[i] <= model.V2r[i]*IU[i] - VL[i]*IU[i] + VL[i]*model.Ixr[i]
-# def ineq_constr7(model, i):
-#     return model.XMc0[i] >= model.V2r[i]*IL[i] +VL[i]*model.Ixr[i] - VL[i]*IL[i]
 
-# def ineq_constr8(model, i):
-#     return model.XMc1[i] >= VU[i]*model.Ixi[i] + model.V2i[i]*IU[i] - VU[i]*IU[i]
-# def ineq_constr9(model, i):
-#     return model.XMc1[i] <= VU[i]*model.Ixi[i] - VU[i]*IL[i] + model.V2i[i]*IL[i]
-# def ineq_constr10(model, i):
-#     return model.XMc1[i] <= model.V2i[i]*IU[i] - VL[i]*IU[i] + VL[i]*model.Ixi[i]
-# def ineq_constr11(model, i):
-#     return model.XMc1[i] >= model.V2i[i]*IL[i] +VL[i]*model.Ixi[i] - VL[i]*IL[i]
-
-# def ineq_constr12(model, i):
-#     return model.XMc2[i] >= VU[i]*model.Ixi[i] + model.V2r[i]*IU[i] - VU[i]*IU[i]
-# def ineq_constr13(model, i):
-#     return model.XMc2[i] <= VU[i]*model.Ixi[i] - VU[i]*IL[i] + model.V2r[i]*IL[i]
-# def ineq_constr14(model, i):
-#     return model.XMc2[i] <= model.V2r[i]*IU[i] - VL[i]*IU[i] + VL[i]*model.Ixi[i]
-# def ineq_constr15(model, i):
-#     return model.XMc2[i] >= model.V2r[i]*IL[i] +VL[i]*model.Ixi[i] - VL[i]*IL[i]
-
-# def ineq_constr16(model, i):
-#     return model.XMc3[i] >= VU[i]*model.Ixr[i] + model.V2i[i]*IU[i] - VU[i]*IU[i]
-# def ineq_constr17(model, i):
-#     return model.XMc3[i] <= VU[i]*model.Ixr[i] - VU[i]*IL[i] + model.V2i[i]*IL[i]
-# def ineq_constr18(model, i):
-#     return model.XMc3[i] <= model.V2i[i]*IU[i] - VL[i]*IU[i] + VL[i]*model.Ixr[i]
-# def ineq_constr19(model, i):
-#     return model.XMc3[i] >= model.V2i[i]*IL[i] +VL[i]*model.Ixr[i] - VL[i]*IL[i]
-
-# def ineq_constr3(model):
-#     realP = sum(model.V2r[j]*model.Ixr[j]+model.V2i[j]*model.Ixi[j] for j in range(n))
-#     imagQ = sum(model.V2i[j]*model.Ixr[j]-model.V2r[j]*model.Ixi[j] for j in range(n))
-  
-#     rhs = sum(((aj[j])**2)*model.sj[j] for j in range(sizeSj))
-#     return realP**2 + imagQ**2 <= rhs
-#     # return realP**2 + imagQ**2 <= model.St**2
 
 
 model.constraint1 = Constraint(model.n, rule=equality_constraint1)
@@ -284,38 +226,31 @@ model.constraint10 = Constraint(model.n, rule=equality_constraint10)
 model.constraint11 = Constraint(model.n, rule=equality_constraint11)
 model.constraint12 = Constraint(model.n, rule=equality_constraint12)
 model.constraint13 = Constraint(model.n, rule=equality_constraint13)
+model.constraint13a = Constraint(model.n, rule=equality_constraint13a)
+# model.constraint13b = Constraint(model.n, rule=equality_constraint13b)
+# model.constraint13c = Constraint(model.n, rule=equality_constraint13c)
+# model.constraint13d = Constraint(model.n, rule=equality_constraint13d)
+# model.constraint13e = Constraint(model.n, rule=equality_constraint13e)
 model.constraint14 = Constraint(model.n, rule=equality_constraint14)
+model.constraint14a = Constraint(model.n, rule=equality_constraint14a)
+# model.constraint14b = Constraint(model.n, rule=equality_constraint14b)
+# model.constraint14c = Constraint(model.n, rule=equality_constraint14c)
 model.constraint15 = Constraint(rule=equality_constraint15)
 
 model.ineq_constr1  = pyo.Constraint(rule=ineq_constr1)
 model.ineq_constr2  = pyo.Constraint(rule=ineq_constr2)
 model.ineq_constr3  = pyo.Constraint(rule=ineq_constr3)
-# model.ineq_constr4  = pyo.Constraint(model.n, rule=ineq_constr4)
-# model.ineq_constr5  = pyo.Constraint(model.n, rule=ineq_constr5)
-# model.ineq_constr6  = pyo.Constraint(model.n, rule=ineq_constr6)
-# model.ineq_constr7  = pyo.Constraint(model.n, rule=ineq_constr7)
-# model.ineq_constr8  = pyo.Constraint(model.n, rule=ineq_constr8)
-# model.ineq_constr9  = pyo.Constraint(model.n, rule=ineq_constr9)
-# model.ineq_constr10 = pyo.Constraint(model.n, rule=ineq_constr10)
-# model.ineq_constr11 = pyo.Constraint(model.n, rule=ineq_constr11)
-# model.ineq_constr12 = pyo.Constraint(model.n, rule=ineq_constr12)
-# model.ineq_constr13 = pyo.Constraint(model.n, rule=ineq_constr13)
-# model.ineq_constr14 = pyo.Constraint(model.n, rule=ineq_constr14)
-# model.ineq_constr15 = pyo.Constraint(model.n, rule=ineq_constr15)
-# model.ineq_constr16 = pyo.Constraint(model.n, rule=ineq_constr16)
-# model.ineq_constr17 = pyo.Constraint(model.n, rule=ineq_constr17)
-# model.ineq_constr18 = pyo.Constraint(model.n, rule=ineq_constr18)
-# model.ineq_constr19 = pyo.Constraint(model.n, rule=ineq_constr19)
-V_u = [5800000, 5800000, 5800000]
+
+V_u = [580000000, 580000000, 580000000]
 V_l = [0,0,0]
-W_u = [5800000, 5800000, 5800000]
+W_u = [580000000, 580000000, 580000000]
 W_l = [0,0,0]
-X_u = [8700000000, 8700000000, 8700000000]
-X_l = [-8700000000, -8700000000, -870000000]
-Y_u = [8700000000, 8700000000, 8700000000]
-Y_l = [-8700000000, -8700000000, -870000000]
-Z_u = [1500, 1500, 1500]
-Z_l = [-1500, -1500, -1500]
+X_u = [870000000000, 870000000000, 870000000000]
+X_l = [-870000000000, -870000000000, -87000000000]
+Y_u = [870000000000, 870000000000, 870000000000]
+Y_l = [-870000000000, -870000000000, -87000000000]
+Z_u = [15000, 15000, 15000]
+Z_l = [-15000, -15000, -15000]
 
 VU = [7500, 7500, 7500]
 VL = [-7500, -7500, -7500]
@@ -334,7 +269,7 @@ Constraint_List6 = ['ineq_constr21', 'ineq_constr22', 'ineq_constr23'] #Per phas
 Constraint_List7 = ['ineq_constr24', 'ineq_constr25', 'ineq_constr26'] #Per phase bilinearity constraint of z*V4i^2 = z*v = y0
 Constraint_List8 = ['ineq_constr27', 'ineq_constr28', 'ineq_constr29'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
 Constraint_List9 = ['ineq_constr30', 'ineq_constr31', 'ineq_constr32'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
-for name in Constraint_List0 + Constraint_List1 + Constraint_List2 + Constraint_List3 + Constraint_List4 + Constraint_List5 + Constraint_List6 + Constraint_List7 + Constraint_List8 + Constraint_List9:
+for name in Constraint_List0 + Constraint_List1 + Constraint_List2 + Constraint_List3: #+ Constraint_List4 + Constraint_List5 + Constraint_List6 + Constraint_List7 + Constraint_List8 + Constraint_List9:
     setattr(model, name, ConstraintList())
 
 for i in range(n):
@@ -358,29 +293,29 @@ for i in range(n):
     for c in constraints:
         getattr(model, Constraint_List3[i]).add(c)
     
-    constraints = QuadMcCor(model.V4r[i], model.w[i], XU = V_u[i], XL = V_l[i])    #quadratic mccormick for V4r i iterating per phase
-    for c in constraints:
-        getattr(model, Constraint_List4[i]).add(c)
+    # constraints = QuadMcCor(model.V4r[i], model.w[i], XU = V_u[i], XL = V_l[i])    #quadratic mccormick for V4r i iterating per phase
+    # for c in constraints:
+    #     getattr(model, Constraint_List4[i]).add(c)
         
-    constraints = QuadMcCor(model.V4i[i], model.v[i], XU = W_u[i], XL = W_l[i])    #quadratic mccormick for V4i i iterating per phase
-    for c in constraints:
-        getattr(model, Constraint_List5[i]).add(c)
+    # constraints = QuadMcCor(model.V4i[i], model.v[i], XU = W_u[i], XL = W_l[i])    #quadratic mccormick for V4i i iterating per phase
+    # for c in constraints:
+    #     getattr(model, Constraint_List5[i]).add(c)
         
-    constraints = McCormick(model.z0[i], model.w[i], model.x0[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
-    for c in constraints:
-        getattr(model, Constraint_List6[i]).add(c)
+    # constraints = McCormick(model.z0[i], model.w[i], model.x0[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
+    # for c in constraints:
+    #     getattr(model, Constraint_List6[i]).add(c)
     
-    constraints = McCormick(model.z0[i], model.v[i], model.y0[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
-    for c in constraints:
-        getattr(model, Constraint_List7[i]).add(c)
+    # constraints = McCormick(model.z0[i], model.v[i], model.y0[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
+    # for c in constraints:
+    #     getattr(model, Constraint_List7[i]).add(c)
     
-    constraints = McCormick(model.z1[i], model.w[i], model.x1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
-    for c in constraints:
-        getattr(model, Constraint_List8[i]).add(c)
+    # constraints = McCormick(model.z1[i], model.w[i], model.x1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
+    # for c in constraints:
+    #     getattr(model, Constraint_List8[i]).add(c)
     
-    constraints = McCormick(model.z1[i], model.v[i], model.y1[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
-    for c in constraints:
-        getattr(model, Constraint_List9[i]).add(c)
+    # constraints = McCormick(model.z1[i], model.v[i], model.y1[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
+    # for c in constraints:
+    #     getattr(model, Constraint_List9[i]).add(c)
 # constraints = McCormick(model, i, 'V2i', 'Ixi', 'XMc1', XU=VU, XL=VL, YU=IU, YL=IL)
 #     for c in constraints:
 #         model.ineq8to11.add(c)

@@ -294,10 +294,10 @@ for i in range(n):
     
     
 #choosing the solver and some settings to adjust how long the code will run for
-solver = SolverFactory('baron')
+solver = SolverFactory('gurobi')
 # solver.options['MaxIter'] = 1000
-solver.options['PrLevel'] = 5
-solver.options['MaxTime'] = -1
+# solver.options['PrLevel'] = 5
+# solver.options['MaxTime'] = -1
 
 
 #Output results from solver as a file 
@@ -361,28 +361,29 @@ Stot = Sa + Sb + Sc
 print("Apparent per phase power at Transformer: ", Sa, "and", Sb, "and", Sc)
 print("Apparent power at Transformer: ", Stot)
 
-
-#Notes:
-#I have just run the OPF problem.  From here I am going to add in a dummy variable 'z0' and 'z1' to replace the nonlinearities with
-#Nonlinearity being (P*V4r + Q*V4i)/(V4r^2 + V4i^2) and (P*V4i - Q*V4r)/(V4r^2 + V4i^2)
-#I will experiment which equivalent formulations of z equalling these constraints will baron not like
-#This set of equality constraints with the dummy variables worked
-# def equality_constraint15(model, i):
-#     return model.z0[i] == (PL*model.V4r[i] + QL*model.V4i[i])/(model.V4r[i]**2 + model.V4i[i]**2)
-# def equality_constraint16(model, i):
-#     return model.z1[i] == (PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)
-#This worked as well
-# def equality_constraint15(model, i):
-#     return model.z0[i]*(model.V4r[i]**2 + model.V4i[i]**2) == (PL*model.V4r[i] + QL*model.V4i[i])
-# def equality_constraint16(model, i):
-#     return model.z1[i]*(model.V4r[i]**2 + model.V4i[i]**2) == (PL*model.V4i[i] - QL*model.V4r[i])
-#Time to try adding in McCormick for this
-#I am going to try to linearize the V4r^2 and V4i^2 terms first
-#I linearized with the quadratic version of McCormick; with the current version though my problem is infeasible
-#I changed the bounds both for my variables and my McCormick equations which allowed me to find a feasible solution
-#I want to figure out where this breaks so instead of adding in more constraints I will try to break this problem
-#My lower bound was 0 originally which was incorrect.  0 is a lower bound for w and v but not for V4
-#I found that I didn't assign the bounds properly
-#I also found that if I include an objective function to change this from a feasibility problem to optimization
-#I get a lower (and thus different) answer meaning that the relaxation increases the feasible space
+"""
+Notes:
+I have just run the OPF problem.  From here I am going to add in a dummy variable 'z0' and 'z1' to replace the nonlinearities with
+Nonlinearity being (P*V4r + Q*V4i)/(V4r^2 + V4i^2) and (P*V4i - Q*V4r)/(V4r^2 + V4i^2)
+I will experiment which equivalent formulations of z equalling these constraints will baron not like
+This set of equality constraints with the dummy variables worked
+def equality_constraint15(model, i):
+    return model.z0[i] == (PL*model.V4r[i] + QL*model.V4i[i])/(model.V4r[i]**2 + model.V4i[i]**2)
+def equality_constraint16(model, i):
+    return model.z1[i] == (PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)
+This worked as well
+def equality_constraint15(model, i):
+    return model.z0[i]*(model.V4r[i]**2 + model.V4i[i]**2) == (PL*model.V4r[i] + QL*model.V4i[i])
+def equality_constraint16(model, i):
+    return model.z1[i]*(model.V4r[i]**2 + model.V4i[i]**2) == (PL*model.V4i[i] - QL*model.V4r[i])
+Time to try adding in McCormick for this
+I am going to try to linearize the V4r^2 and V4i^2 terms first
+I linearized with the quadratic version of McCormick; with the current version though my problem is infeasible
+I changed the bounds both for my variables and my McCormick equations which allowed me to find a feasible solution
+I want to figure out where this breaks so instead of adding in more constraints I will try to break this problem
+My lower bound was 0 originally which was incorrect.  0 is a lower bound for w and v but not for V4
+I found that I didn't assign the bounds properly
+I also found that if I include an objective function to change this from a feasibility problem to optimization
+I get a lower (and thus different) answer meaning that the relaxation increases the feasible space
+"""
 print(Vlower)

@@ -14,7 +14,7 @@ import math
 import re
 
 # Create a Pyomo model
-model = pyo.ConcreteModel()
+model = ConcreteModel()
 
 PL = 1800000 #load real power
 QL = (PL/0.9)*math.sin(math.acos(0.9)) #load reactive power
@@ -107,26 +107,38 @@ model.Ixi = Var(range(n), bounds=(-2000, 2000), initialize=0)
 model.I2xr = Var(range(n), bounds=(-2000, 2000), initialize=0)
 model.I2xi = Var(range(n), bounds=(-2000, 2000), initialize=0)
 
+#dummy variable for testing replacement of nonlinearities in OPF
+model.z0 = Var(range(n), bounds = (-1100, 1100), initialize = 0)
+model.z1 = Var(range(n), bounds = (-1100, 1100), initialize = 0)
+model.x0 = Var(range(n), bounds = (-8.7e9, 8.7e9), initialize = 8.7e9) #bounds = max(I12*(V4r)**2)
+model.x1 = Var(range(n), bounds = (-8.7e9, 8.7e9), initialize = 0)
+model.y0 = Var(range(n), bounds = (-8.7e9, 8.7e9), initialize = 8.7e9)
+model.y1 = Var(range(n), bounds = (-8.7e9, 8.7e9), initialize = 0)
+
+#McCormick variables for the quadratic V4r^2 and V4i^2 respectively
+model.w = Var(range(n), bounds = (0, 5800000), initialize = 1000)
+model.v = Var(range(n), bounds = (0, 5800000), initialize = 1000)
+
+#McCormick Variables for transformer power flow
+xmc = 4
+model.XMc0 = Var(range(n), bounds = (-20000000000, 20000000000), initialize = 0)
+model.XMc1 = Var(range(n), bounds = (-20000000000, 20000000000), initialize = 0)
+model.XMc2 = Var(range(n), bounds = (-20000000000, 20000000000), initialize = 0)
+model.XMc3 = Var(range(n), bounds = (-20000000000, 20000000000), initialize = 0)
 
 #This is for our transformer selection portion of the problem:
 #aj represents the rating of transformer j with sj being 1 when its selected and 0 when not selected
-aj = [6000000, 7000000, 8000000, 9000000, 1000000]
+aj = [6000000, 7000000, 8000000, 9000000, 10000000]
 sizeSj = len(aj)
-
-model.sj = Var(range(sizeSj), within = pyo.Binary)
+model.sj = Var(range(sizeSj), within = pyo.Binary, initialize = 0)
 
 #So the goal of this optimization problem besides testing my knowledge of McCormick linearization of nonlinearities
 #is to solve the OPF with an additional transformer selection
-#potential different objective
-#This objective is specifically to find the smallest transformer size which satisfies constraints
-# def cost_rule(model):
-#     realP = sum(model.V2r[j]*model.Ixr[j] + model.V2i[j]*model.Ixi[j] for j in range(n))
-#     imagQ = sum(model.V2i[j]*model.Ixr[j] - model.V2r[j]*model.Ixi[j] for j in range(n))
-#     rhs = sum((aj[j]**2) * model.sj[j] for j in range(sizeSj))
-#     return (realP**2 + imagQ**2 - rhs)**2
+#In rewriting this code, the first thing I would like to try is to linearize the OPF with McCormick
+#From there I will add in the transformer selection and see what happens
 
-# model.obj = Objective(rule=cost_rule, sense=minimize)
-model.obj = Objective(expr=sum(aj[j] * model.sj[j] for j in range(sizeSj)), sense=pyo.minimize)
+model.obj = Objective(expr = sum((aj[j]*model.sj[j] for j in range(sizeSj))))
+# model.obj = Objective(expr = 1)
 
 #For Pyomo, we want to define our functions and then call them to be modeled
 #In looking at it now, some of the functions could be removed and iteratively created if we were to desire to do more with this
@@ -173,22 +185,70 @@ def equality_constraint12(model, i):
 #Note that our only nonlinearities exist in here as, with V-I formulation, equations for power are nonlinear
 def equality_constraint13(model, i):
     return sum(Gl34[i,j]*(model.V4r[j]-model.V3r[j]) for j in range(n)) -sum(Bl34[i,j]*(model.V4i[j] - model.V3i[j]) for j in range(n)) + \
-        (PL*model.V4r[i] + QL*model.V4i[i])/(model.V4r[i]**2 + model.V4i[i]**2) ==0
-        
+        model.z0[i] ==0
 def equality_constraint14(model, i):
     return sum(Gl34[i,j]*(model.V4i[j]-model.V3i[j]) for j in range(n)) + sum(Bl34[i,j]*(model.V4r[j] - model.V3r[j]) for j in range(n)) + \
-        (PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)  ==0
+        model.z1[i] ==0
 
-#Here I am going to add the constraints for the transformer selection
-#First being that we may only choose one transformer (sum of binary variables corresponding to a transformer selection == 1)
-def equality_constraint15(model):
+#define function which replace nonlinearity in equality constraint 13 and 14
+def equality_constraint15a(model, i):
+    return (PL*model.V4r[i] + QL*model.V4i[i]) == model.x0[i] + model.y0[i] # model.z0[i]*(model.w[i] + model.v[i])
+def equality_constraint15b(model, i):
+    return model.x0[i] == model.z0[i]*model.w[i]
+def equality_constraint15c(model, i):
+    return model.y0[i] == model.z0[i]*model.v[i]
+
+def equality_constraint16a(model, i):
+    return (PL*model.V4i[i] - QL*model.V4r[i]) == model.z1[i]*(model.w[i] + model.v[i]) #model.x1[i] + model.y1[i]
+def equality_constraint16b(model, i):
+    return model.x1[i] == model.z1[i]*model.w[i]
+def equality_constraint16c(model, i):
+    return model.y1[i] == model.z1[i]*model.v[i]
+
+#Here will be the definition of the transformer selection constrained by the linearized transformer power flow 
+#make sure we only select one transformer
+def equality_constraint17(model):
     return sum(model.sj[j] for j in range(sizeSj)) == 1
 
 def ineq_constr1(model):
-    return (sum(model.V2r[j]*model.Ixr[j] + model.V2i[j]*model.Ixi[j] for j in range(n)))**2 + \
-           (sum(model.V2i[j]*model.Ixr[j] - model.V2r[j]*model.Ixi[j] for j in range(n)))**2 <= \
-           sum((aj[j]**2)*model.sj[j] for j in range(sizeSj))
+    return sum(((aj[j]/3)**2)*model.sj[j] for j in range(sizeSj)) >= model.XMc0[0]**2 + model.XMc1[0]**2 + model.XMc2[0]**2 + model.XMc3[0]**2
+def ineq_constr2(model):
+    return sum(((aj[j]/3)**2)*model.sj[j] for j in range(sizeSj)) >= model.XMc0[1]**2 + model.XMc1[1]**2 + model.XMc2[1]**2 + model.XMc3[1]**2
+def ineq_constr3(model):
+    return sum(((aj[j]/3)**2)*model.sj[j] for j in range(sizeSj)) >= model.XMc0[2]**2 + model.XMc1[2]**2 + model.XMc2[2]**2 + model.XMc3[2]**2
 
+#These are going to be the constraints for the quadratic McCormick
+def QuadMcCor(x, y, XU, XL):
+    return[
+        y >= 2*XU*x - XU**2,
+        y >= 2*x*XL - XL**2,
+        y <= x*XU - XL*XU + XL*x,
+        # x >= XL,
+        # x <= XU
+    ]
+
+#for a McCormick Relaxation of z = xy
+def McCormick(x, y, z, XU, XL, YU, YL):
+    return[
+        z >= XU*y + x*YU - XU*YU,
+        z <= XU*y - XU*YL + x*YL,
+        z <= x*YU - XL*YU + XL*y,
+        z >= x*YL + XL*y - XL*YL,
+        # x >= XL,
+        # x <= XU,
+        # y >= YL,
+        # y <= YU
+    ]
+
+#I want to define my upper and lower bounds for model.v and model.w which are the same (using the same list to conserve space)
+upperV4 = [Vlower, Vlower, Vlower]
+lowerV4 = [-Vlower,-Vlower,-Vlower]
+V_u = [5.8e9, 5.8e9, 5.8e9]
+V_l = [0,0,0]
+W_u = [5.8e9, 5.8e9, 5.8e9]
+W_l = [0,0,0]
+Z_u = [1100, 1100, 1100]
+Z_l = [-1100, -1100, -1100]
 #adding the constraints to the model
 model.constraint1 = Constraint(model.n, rule=equality_constraint1)
 model.constraint2 = Constraint(model.n, rule=equality_constraint2)
@@ -204,15 +264,89 @@ model.constraint11 = Constraint(model.n, rule=equality_constraint11)
 model.constraint12 = Constraint(model.n, rule=equality_constraint12)
 model.constraint13 = Constraint(model.n, rule=equality_constraint13)
 model.constraint14 = Constraint(model.n, rule=equality_constraint14)
-model.constraint15 = Constraint(rule = equality_constraint15)
-model.constraint16 = Constraint(rule = ineq_constr1)
 
+#Extra constraints for addition of dummy variables
+model.constraint15a = Constraint(model.n, rule = equality_constraint15a)
+model.constraint15b = Constraint(model.n, rule = equality_constraint15b)
+model.constraint15c = Constraint(model.n, rule = equality_constraint15c)
+model.constraint16a = Constraint(model.n, rule = equality_constraint16a)
+model.constraint16b = Constraint(model.n, rule = equality_constraint16b)
+model.constraint16c = Constraint(model.n, rule = equality_constraint16c)
+
+model.constraint17 = Constraint(rule = equality_constraint17)
+model.constraint17 = Constraint(rule = ineq_constr1)
+model.constraint17 = Constraint(rule = ineq_constr2)
+model.constraint17 = Constraint(rule = ineq_constr3)
+#define list of constraints which will be iteratively created directly proceeding this
+Constraint_List0 = ['quadMcConstraint0', 'quadMcConstraint1', 'quadMcConstraint2']
+Constraint_List1 = ['quadMcConstraint3', 'quadMcConstraint4', 'quadMcConstraint5']
+Constraint_List2 = ['ineq_constr0', 'ineq_constr1', 'ineq_constr2'] #Per phase bilinearity constraint of z*V4r^2 = z*w = x0
+Constraint_List3 = ['ineq_constr3', 'ineq_constr4', 'ineq_constr5'] #Per phase bilinearity constraint of z*V4i^2 = z*v = y0
+Constraint_List4 = ['ineq_constr6', 'ineq_constr7', 'ineq_constr8'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
+Constraint_List5 = ['ineq_constr9', 'ineq_constr10', 'ineq_constr11'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
+
+#List of McCormick Constraints for power through transformer
+Constraint_List6 = ['ineq_constr12', 'ineq_constr13', 'ineq_constr14'] #Per phase for V2r*I12r
+Constraint_List7 = ['ineq_constr15', 'ineq_constr16', 'ineq_constr17'] #Per phase for V2i*I12i
+Constraint_List8 = ['ineq_constr18', 'ineq_constr19', 'ineq_constr20'] #Per phase for V2r*I12i
+Constraint_List9 = ['ineq_constr21', 'ineq_constr22', 'ineq_constr23'] #Per phase for V2i*I12r
+
+#This makes each name in the constraint lists a model.ConstraintList()
+#This allows for the assignment of multiple constraints to one list which can be accessed by name
+#Simply put, it is a method to iteratively define and add constraints to the model
+for name in Constraint_List0 + Constraint_List1 + Constraint_List2 + Constraint_List3 + Constraint_List4 + Constraint_List5 + Constraint_List6 + Constraint_List7 + Constraint_List8 + Constraint_List9:
+    setattr(model, name, ConstraintList())
+    
+#This is where the constraints get added to the model.  Each Constraint_ListX[i] gets assigned the three McCormick constraints corresponding to
+#the 'i'th 'v' or 'w' variable
+for i in range(n):
+    constraints = QuadMcCor(model.V4r[i], model.w[i], XU = upperV4[i], XL = lowerV4[i])    #quadratic mccormick for V4r i iterating per phase
+    for c in constraints:
+        getattr(model, Constraint_List0[i]).add(c)
+        
+    constraints = QuadMcCor(model.V4i[i], model.v[i], XU = upperV4[i], XL = lowerV4[i])    #quadratic mccormick for V4i i iterating per phase
+    for c in constraints:
+        getattr(model, Constraint_List1[i]).add(c)
+
+#For this constraint we have X0 = z0*w in z = xy form
+         
+    constraints = McCormick(model.z0[i], model.w[i], model.x0[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
+    for c in constraints:
+        getattr(model, Constraint_List2[i]).add(c)
+        
+#For this constraint we have Y0 = z0*v in z = xy form  
+    constraints = McCormick(model.z0[i], model.v[i], model.y0[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
+    for c in constraints:
+        getattr(model, Constraint_List3[i]).add(c)
+    
+    constraints = McCormick(model.z1[i], model.w[i], model.x1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
+    for c in constraints:
+        getattr(model, Constraint_List4[i]).add(c)
+    
+    constraints = McCormick(model.z1[i], model.v[i], model.y1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])   #McCormick for z*V4i^2 = z*v= y0
+    for c in constraints:
+        getattr(model, Constraint_List5[i]).add(c)
+        
+#McCormick Constraint for power flow through transformer
+    constraints = McCormick(model.V2r[i], model.Ixr[i], model.XMc0[i], XU = VoltageH, XL = -VoltageH, YU = 500, YL = -500)
+    for c in constraints:
+        getattr(model, Constraint_List6[i]).add(c)
+    constraints = McCormick(model.V2i[i], model.Ixi[i], model.XMc1[i], XU = VoltageH, XL = -VoltageH, YU = 500, YL = -500)
+    for c in constraints:
+        getattr(model, Constraint_List7[i]).add(c)
+    constraints = McCormick(model.V2r[i], model.Ixi[i], model.XMc2[i], XU = VoltageH, XL = -VoltageH, YU = 500, YL = -500)
+    for c in constraints:
+        getattr(model, Constraint_List8[i]).add(c)
+    constraints = McCormick(model.V2i[i], model.Ixr[i], model.XMc3[i], XU = VoltageH, XL = -VoltageH, YU = 500, YL = -500)
+    for c in constraints:
+        getattr(model, Constraint_List9[i]).add(c)
+        
 #choosing the solver and some settings to adjust how long the code will run for
 solver = SolverFactory('baron')
 # solver.options['MaxIter'] = 1000
-solver.options['PrLevel'] = 5
-solver.options['MaxTime'] = -1
-# solver.options['BinaryVariables'] = 'sj'
+# solver.options['PrLevel'] = 5
+# solver.options['MaxTime'] = -1
+
 
 #Output results from solver as a file 
 result = solver.solve(model, tee=True, logfile="baron_prac_data.txt", keepfiles = True)  # 'tee=True' will display solver output in the terminal
@@ -271,24 +405,40 @@ Sb = pyomo.environ.sqrt(Pb**2 + Qb**2)
 Sc = pyomo.environ.sqrt(Pc**2 + Qc**2)
 Stot = pyomo.environ.sqrt(Ptot**2 + Qtot**2)
 
-# Stot = Sa + Sb + Sc
+Stot = Sa + Sb + Sc
 print("Apparent per phase power at Transformer: ", Sa, "and", Sb, "and", Sc)
 print("Apparent power at Transformer: ", Stot)
 
 """
 Notes:
-We know from the nonlinear OPF that it works.  I want to see if I add back in the nonlinear transformer selection still iterates indefinitely
-When I say minimize aj = [6000000, 7000000, 8000000, 9000000, 10000000] it chooses 10, despite the power being 7.2 and the minimal choice being 8
-I am not sure why, I am going to try to individually list the xj variables
-This didn't vary the results.
-Pyomo documentation states I should be defining variables with pyo.kernel but ChatGPT says thats its not directly compatible with the useage of 
-solvers like baron and need more set up.  There has got to be a way to define the binary variables in a way that baron can handle them and output
-the correct solution
+I have just run the OPF problem.  From here I am going to add in a dummy variable 'z0' and 'z1' to replace the nonlinearities with
+Nonlinearity being (P*V4r + Q*V4i)/(V4r^2 + V4i^2) and (P*V4i - Q*V4r)/(V4r^2 + V4i^2)
+I will experiment which equivalent formulations of z equalling these constraints will baron not like
+This set of equality constraints with the dummy variables worked
+def equality_constraint15(model, i):
+    return model.z0[i] == (PL*model.V4r[i] + QL*model.V4i[i])/(model.V4r[i]**2 + model.V4i[i]**2)
+def equality_constraint16(model, i):
+    return model.z1[i] == (PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)
+This worked as well
+def equality_constraint15(model, i):
+    return model.z0[i]*(model.V4r[i]**2 + model.V4i[i]**2) == (PL*model.V4r[i] + QL*model.V4i[i])
+def equality_constraint16(model, i):
+    return model.z1[i]*(model.V4r[i]**2 + model.V4i[i]**2) == (PL*model.V4i[i] - QL*model.V4r[i])
+Time to try adding in McCormick for this
+I am going to try to linearize the V4r^2 and V4i^2 terms first
+I linearized with the quadratic version of McCormick; with the current version though my problem is infeasible
+I changed the bounds both for my variables and my McCormick equations which allowed me to find a feasible solution
+I want to figure out where this breaks so instead of adding in more constraints I will try to break this problem
+My lower bound was 0 originally which was incorrect.  0 is a lower bound for w and v but not for V4
+I found that I didn't assign the bounds properly
+I also found that if I include an objective function to change this from a feasibility problem to optimization
+I get a lower (and thus different) answer meaning that the relaxation increases the feasible space
 
-I know from reading that the default is for the obj to be minimized but lets try adding pyo.minimize to the objective to see what happens
-Update: no change
+Further more, adding in the transformer power flow at the end, I am finding that baron isn't handling binary variables well
+It is confusing to why this is the case as there isn't much documentation for why this could happen
+I get a solution, a solid lower bound for the original problem from this however it takes 600k iterations to get the solution 
+I will ask for help at this point, I feel there is nothing better I can do to improve this on my own
 
-I notice that when I change aj, the objective solution changes:
-when aj = [6000000, 7000000, 8000000, 9000000, 1000000] it evaluates the power through the transformer as 7.18MVA but the objective evaluates at 1000000
-when aj = [6000000, 7000000, 8000000, 9000000] it evaluates the power the same but chooses a tiny bit of s0 and 0.99999 of s3 to arrive at 7.999MVA
+I added in extra contraints to McCormick to ensure variables are between bounds
 """
+print(Vlower)
