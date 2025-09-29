@@ -147,7 +147,7 @@ def equality_constraint3(model, i):
     return Vsr[i] - model.V1r[i] == 0
 def equality_constraint4(model, i):
     return Vsi[i] - model.V1i[i] == 0
-
+ 
 #Real and imaginary current at node 2 with Ixr being the current going into the transformer (coming out of node 2)
 def equality_constraint5(model, i):
     return model.Ixr[i] + sum(Gl12[i,j]*(model.V2r[j]-model.V1r[j]) for j in range(n)) - sum(Bl12[i,j]*(model.V2i[j]-model.V1i[j]) for j in range(n))==0
