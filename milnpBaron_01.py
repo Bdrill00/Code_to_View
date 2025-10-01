@@ -12,7 +12,6 @@ model = ConcreteModel()
 
 PL = 1800000
 QL = (PL/0.9)*math.sin(math.acos(0.9))
-print(QL)
 St = 6000000
 VoltageH = 12470/np.sqrt(3)
 VoltageL = 4160
@@ -62,8 +61,6 @@ lineOne = 2000/5280
 lineTwo = 2500/5280
 
 Zline12 = Zline*lineOne
-R12 = Zline12.real
-X12 = Zline12.imag
 Zline34 = Zline*lineTwo
 
 Yline12 = np.linalg.inv(Zline12)
@@ -78,16 +75,7 @@ Bl34 = Yline34.imag
 # 3-phase vector
 n=3
 
-#VrIr + ViIi + VrIi + ViIr
-VU = [7500, 7500, 7500]
-VL = [-7500, -7500, -7500]
-IU = [500, 500, 500]
-IL = [-500, -500, -500]
-
-
-xmc = 4
 model.n = pyo.RangeSet(0, n-1)
-
 model.V1r = Var(range(n), bounds=(-20000, 20000), initialize=12470)
 model.V1i = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.V2r = Var(range(n), bounds=(-20000, 20000), initialize=12000)
@@ -95,40 +83,29 @@ model.V2i = Var(range(n), bounds=(-20000, 20000), initialize = 0)
 model.V3r = Var(range(n), bounds=(-20000, 20000), initialize=12000)
 model.V3i = Var(range(n), bounds=(-20000, 20000), initialize = 0)
 model.V4r = Var(range(n), bounds=(-20000, 20000), initialize=12000)
-model.V4i = Var(range(n), bounds=(-20000, 20000), initialize = 1)
+model.V4i = Var(range(n), bounds=(-20000, 20000), initialize = 0)
 model.Islackr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.Islacki = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.Ixr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.Ixi = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.I2xr = Var(range(n), bounds=(-20000, 20000), initialize=0)
 model.I2xi = Var(range(n), bounds=(-20000, 20000), initialize=0)
+# model.St = Var(range(n), bounds=(-20000000, 20000000), initialize = 0)
 
-model.z0 = Var(range(n), bounds = (-1500, 1500), initialize = 1)
-model.y0 = Var(range(n), bounds = (-10000000000000, 10000000000000), initialize = 0)
-model.x0 = Var(range(n), bounds = (-10000000000000, 10000000000000), initialize = 0)
-model.z1 = Var(range(n), bounds = (-1500, 1500), initialize = 1)
-model.y1 = Var(range(n), bounds = (-10000000000, 10000000000), initialize = 0)
-model.x1 = Var(range(n), bounds = (-10000000000, 10000000000), initialize = 0)
-model.w = Var(range(n), bounds = (0, 600000000000), initialize = 0)
-model.v = Var(range(n), bounds = (0, 600000000000), initialize = 0)
-
-model.XMc0 = Var(range(xmc), bounds = (-200000000, 200000000), initialize = 0)
-model.XMc1 = Var(range(xmc), bounds = (-200000000, 200000000), initialize = 0)
-model.XMc2 = Var(range(xmc), bounds = (-200000000, 200000000), initialize = 0)
-model.XMc3 = Var(range(xmc), bounds = (-200000000, 200000000), initialize = 0)
-
-aj = [6000000, 7000000, 8000000, 9000000, 10000000]
-bj = [1, 2, 3, 4, 5]
+aj = [5000000, 6000000, 7000000, 8000000, 9000000, 10000000]
+bj = [1, 2, 3, 4, 5, 6]
+# bj = [-6,-5,-4,-3,-2,-1]
 sizeSj = len(aj)
 model.sj = Var(range(sizeSj), within = pyo.Binary)
 
 
+
 # Define objective function
-model.obj = Objective(expr = sum((bj[j]*model.sj[j] for j in range(sizeSj))))
+# model.obj = Objective(expr = 1) #when i chose this, it always chose the largest value
 # model.obj = Objective(expr = sum((bj[j])*model.sj[j] for j in range(sizeSj))) #when this was constraint, it wouldn't stop iterating
 
-# model.obj = Objective(expr = bj[0]*model.sj[0] + bj[1]*model.sj[1] + bj[2]*model.sj[2] + bj[3]*model.sj[3] + bj[4]*model.sj[4] + bj[5]*model.sj[5])
-# model.obj = Objective(expr = bj[0]*model.sj[0] + bj[1]*model.sj[1]+bj[2]*model.sj[2])
+model.obj = Objective(expr = bj[0]*model.sj[0] + bj[1]*model.sj[1] + bj[2]*model.sj[2] + bj[3]*model.sj[3] + bj[4]*model.sj[4] + bj[5]*model.sj[5])
+
 def equality_constraint1(model, i):
     return -model.Islackr[i] + sum(Gl12[i,j]*(model.V1r[j]-model.V2r[j]) for j in range(n)) - sum(Bl12[i,j]*(model.V1i[j]-model.V2i[j]) for j in range(n))==0
 def equality_constraint2(model, i):
@@ -164,54 +141,43 @@ def equality_constraint12(model, i):
 
 def equality_constraint13(model, i):
     return sum(Gl34[i,j]*(model.V4r[j]-model.V3r[j]) for j in range(n)) -sum(Bl34[i,j]*(model.V4i[j] - model.V3i[j]) for j in range(n)) + \
-        model.z0[i]==0 
-def equality_constraint13a(model, i):
-    return (PL*model.V4r[i] + QL*model.V4i[i])/(model.V4r[i]**2 + model.V4i[i]**2)  == model.z0[i]
-# def equality_constraint13b(model, i):
-#     return model.x0[i] == model.z0[i]*model.w[i] #do mccormick
-# def equality_constraint13c(model, i):
-#     return model.y0[i] == model.z0[i]*model.v[i] #do mccormick
-# def equality_constraint13d(model, i):
-#     return model.w[i] == model.V4r[i]**2
-# def equality_constraint13e(model, i):
-#     return model.v[i] == model.V4i[i]**2
-
+        (PL*model.V4r[i] + QL*model.V4i[i])/(model.V4r[i]**2 + model.V4i[i]**2)==0
+        
 def equality_constraint14(model, i):
     return sum(Gl34[i,j]*(model.V4i[j]-model.V3i[j]) for j in range(n)) + sum(Bl34[i,j]*(model.V4r[j] - model.V3r[j]) for j in range(n)) + \
-        model.z1[i] == 0 
-def equality_constraint14a(model, i):
-    return (PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)  == model.z1[i]
-# def equality_constraint14b(model, i):
-#     return model.x1[i] == model.z1[i]*model.w[i]
-# def equality_constraint14c(model, i):
-#     return model.y1[i] == model.z1[i]*model.v[i]
+        (PL*model.V4i[i] - QL*model.V4r[i])/(model.V4r[i]**2 + model.V4i[i]**2)==0
+        
         
 #make sure we only select one transformer
 def equality_constraint15(model):
     return sum(model.sj[j] for j in range(sizeSj)) == 1
 
-def ineq_constr1(model):
-    return sum(((aj[j]/3)**2)*model.sj[j] for j in range(sizeSj)) >= model.XMc0[0]**2 + model.XMc0[1]**2 + model.XMc0[2]**2 + model.XMc0[3]**2
-def ineq_constr2(model):
-    return sum(((aj[j]/3)**2)*model.sj[j] for j in range(sizeSj)) >= model.XMc1[0]**2 + model.XMc1[1]**2 + model.XMc1[1]**2 + model.XMc1[1]**2
-def ineq_constr3(model):
-    return sum(((aj[j]/3)**2)*model.sj[j] for j in range(sizeSj)) >= model.XMc2[0]**2 + model.XMc2[1]**2 + model.XMc2[2]**2 + model.XMc2[3]**2
-#McCormick Envelope Relaxation
-def McCormick(x, y, z, XU, XL, YU, YL):
-    return[
-        z >= XU*y + x*YU - XU*YU,
-        z <= XU*y - XU*YL + x*YL,
-        z <= x*YU - XL*YU + XL*y,
-        z >= x*YL + XL*y - XL*YL
-    ]
-def QuadMcCor(x, y, XU, XL):
-    return[
-        y >= 2*XU*x - XU**2,
-        y >= 2*x*XL - XL**2,
-        y <= x*XU - XL*XU + XL*x
-    ]
+#select the right transformer
+# def ineq_constr1(model):
+#     return 7100000 <= (sum((aj[j])*model.sj[j] for j in range(sizeSj))) #change this so it does it iteratively
 
+# def ineq_constr2(model,i):
+#     return model.St[i] >=0
+# #Power flow constraint Sabc = Sa + Sb + Sc
 
+# def ineq_constr3(model, i):
+#     realP = (sum(model.V2r[j]*model.Ixr[j]+model.V2i[j]*model.Ixi[j]) for j in range(n))
+#     imagQ = (sum(model.V2i[j]*model.Ixr[j]-model.V2r[j]*model.Ixi[j]) for j in range(n))
+#     rhs = (sum(((aj[j])**2)*model.sj[j] for j in range(sizeSj)))
+#     return realP**2 + imagQ**2 <= rhs
+# did not like this, threw error for unsupported operand type
+def ineq_constr3(model, i): #tried dividing by 1e3 to get less iterations in making these numbers smaller
+    realP = (model.V2r[0]*model.Ixr[0] + model.V2i[0]*model.Ixi[0] + model.V2r[1]*model.Ixr[1] + model.V2i[1]*model.Ixi[1] + \
+        model.V2r[2]*model.Ixr[2] + model.V2i[2]*model.Ixi[2])/1e3
+    
+    imagQ = ((model.V2i[0]*model.Ixr[0] - model.V2r[0]*model.Ixi[0]) + (model.V2i[1]*model.Ixr[1] - model.V2r[1]*model.Ixi[1]) + \
+        (model.V2i[2]*model.Ixr[2] - model.V2r[2]*model.Ixi[2]))/1e3
+        
+    rhs = (sum(((aj[j]/1e3)**2)*model.sj[j] for j in range(sizeSj)))
+    
+    return realP**2 + imagQ**2 <= rhs
+
+#Sabc = Sa + Sb + Sc find magnitude 
 
 model.constraint1 = Constraint(model.n, rule=equality_constraint1)
 model.constraint2 = Constraint(model.n, rule=equality_constraint2)
@@ -226,121 +192,17 @@ model.constraint10 = Constraint(model.n, rule=equality_constraint10)
 model.constraint11 = Constraint(model.n, rule=equality_constraint11)
 model.constraint12 = Constraint(model.n, rule=equality_constraint12)
 model.constraint13 = Constraint(model.n, rule=equality_constraint13)
-model.constraint13a = Constraint(model.n, rule=equality_constraint13a)
-# model.constraint13b = Constraint(model.n, rule=equality_constraint13b)
-# model.constraint13c = Constraint(model.n, rule=equality_constraint13c)
-# model.constraint13d = Constraint(model.n, rule=equality_constraint13d)
-# model.constraint13e = Constraint(model.n, rule=equality_constraint13e)
 model.constraint14 = Constraint(model.n, rule=equality_constraint14)
-model.constraint14a = Constraint(model.n, rule=equality_constraint14a)
-# model.constraint14b = Constraint(model.n, rule=equality_constraint14b)
-# model.constraint14c = Constraint(model.n, rule=equality_constraint14c)
 model.constraint15 = Constraint(rule=equality_constraint15)
-
-model.ineq_constr1  = pyo.Constraint(rule=ineq_constr1)
-model.ineq_constr2  = pyo.Constraint(rule=ineq_constr2)
-model.ineq_constr3  = pyo.Constraint(rule=ineq_constr3)
-
-V_u = [580000000, 580000000, 580000000]
-V_l = [0,0,0]
-W_u = [580000000, 580000000, 580000000]
-W_l = [0,0,0]
-X_u = [870000000000, 870000000000, 870000000000]
-X_l = [-870000000000, -870000000000, -87000000000]
-Y_u = [870000000000, 870000000000, 870000000000]
-Y_l = [-870000000000, -870000000000, -87000000000]
-Z_u = [15000, 15000, 15000]
-Z_l = [-15000, -15000, -15000]
-
-VU = [7500, 7500, 7500]
-VL = [-7500, -7500, -7500]
-IU = [500, 500, 500]
-IL = [-500, -500, -500]
-
-
-XMc_list = ['XMc0', 'XMc1', 'XMc2'] #McCormick variables to replace bilinearities in power inequalities 1, 2, and 3
-Constraint_List0 = ['ineq_constr4', 'ineq_constr5', 'ineq_constr6'] #VR*IR constraints for each phase respectively
-Constraint_List1 = ['ineq_constr7', 'ineq_constr8', 'ineq_constr9'] #VI*II constraints for each phase respectively
-Constraint_List2 = ['ineq_constr10', 'ineq_constr11', 'ineq_constr12'] #VR*II constraints for each phase respectively
-Constraint_List3 = ['ineq_constr13', 'ineq_constr14', 'ineq_constr15'] #VI*IR constraints for each phase respectively
-Constraint_List4 = ['ineq_constr16', 'ineq_constr17', 'ineq_constr18'] #V4r^2 constraints per phase
-Constraint_List5 = ['ineq_constr19', 'ineq_constr20', 'ineq_constr21'] #V4i^2 constraints per phase
-Constraint_List6 = ['ineq_constr21', 'ineq_constr22', 'ineq_constr23'] #Per phase bilinearity constraint of z*V4r^2 = z*w = x0
-Constraint_List7 = ['ineq_constr24', 'ineq_constr25', 'ineq_constr26'] #Per phase bilinearity constraint of z*V4i^2 = z*v = y0
-Constraint_List8 = ['ineq_constr27', 'ineq_constr28', 'ineq_constr29'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
-Constraint_List9 = ['ineq_constr30', 'ineq_constr31', 'ineq_constr32'] #Per phase bilinearity constraint of z*V4i^2 = z*v = x1
-for name in Constraint_List0 + Constraint_List1 + Constraint_List2 + Constraint_List3: #+ Constraint_List4 + Constraint_List5 + Constraint_List6 + Constraint_List7 + Constraint_List8 + Constraint_List9:
-    setattr(model, name, ConstraintList())
-
-for i in range(n):
-    constraints = McCormick(model.V2r[i], model.Ixr[i], getattr(model, XMc_list[i])[0], XU=VU[i], XL=VL[i], YU=IU[i], YL=IL[i])
-    
-    for c in constraints:
-        getattr(model, Constraint_List0[i]).add(c)
-        
-    constraints = McCormick(model.V2i[i], model.Ixi[i], getattr(model, XMc_list[i])[1], XU=VU[i], XL=VL[i], YU=IU[i], YL=IL[i])
-    
-    for c in constraints:
-        getattr(model, Constraint_List1[i]).add(c)
-        
-    constraints = McCormick(model.V2r[i], model.Ixi[i], getattr(model, XMc_list[i])[2], XU=VU[i], XL=VL[i], YU=IU[i], YL=IL[i])
-    
-    for c in constraints:
-        getattr(model, Constraint_List2[i]).add(c)
-        
-    constraints = McCormick(model.V2i[i], model.Ixr[i], getattr(model, XMc_list[i])[3], XU=VU[i], XL=VL[i], YU=IU[i], YL=IL[i])
-    
-    for c in constraints:
-        getattr(model, Constraint_List3[i]).add(c)
-    
-    # constraints = QuadMcCor(model.V4r[i], model.w[i], XU = V_u[i], XL = V_l[i])    #quadratic mccormick for V4r i iterating per phase
-    # for c in constraints:
-    #     getattr(model, Constraint_List4[i]).add(c)
-        
-    # constraints = QuadMcCor(model.V4i[i], model.v[i], XU = W_u[i], XL = W_l[i])    #quadratic mccormick for V4i i iterating per phase
-    # for c in constraints:
-    #     getattr(model, Constraint_List5[i]).add(c)
-        
-    # constraints = McCormick(model.z0[i], model.w[i], model.x0[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
-    # for c in constraints:
-    #     getattr(model, Constraint_List6[i]).add(c)
-    
-    # constraints = McCormick(model.z0[i], model.v[i], model.y0[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
-    # for c in constraints:
-    #     getattr(model, Constraint_List7[i]).add(c)
-    
-    # constraints = McCormick(model.z1[i], model.w[i], model.x1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
-    # for c in constraints:
-    #     getattr(model, Constraint_List8[i]).add(c)
-    
-    # constraints = McCormick(model.z1[i], model.v[i], model.y1[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
-    # for c in constraints:
-    #     getattr(model, Constraint_List9[i]).add(c)
-# constraints = McCormick(model, i, 'V2i', 'Ixi', 'XMc1', XU=VU, XL=VL, YU=IU, YL=IL)
-#     for c in constraints:
-#         model.ineq8to11.add(c)
-    
-#     constraints = McCormick(model, i, 'V2r', 'Ixi', 'XMc2', XU=VU, XL=VL, YU=IU, YL=IL)
-#     for c in constraints:
-#         model.ineq12to15.add(c)
-    
-#     constraints = McCormick(model, i, 'V2i', 'Ixr', 'XMc3', XU=VU, XL=VL, YU=IU, YL=IL)
-#     for c in constraints:
-#         model.ineq8to11.add(c)
-        
-
 
 # model.ineq_constr1 = Constraint( rule=ineq_constr1)
 # model.ineq_constr2 = Constraint(model.n, rule=ineq_constr2)
-# model.ineq_constr3 = Constraint(rule=ineq_constr3)
+model.ineq_constr3 = Constraint(model.n, rule=ineq_constr3)
 # model.ineq_constr2 = Constraint(rule=ineq_constr2)
 solver = SolverFactory('baron')
-# solver.options['MaxIter'] = 1000
-solver.options['PrLevel'] = 5
-solver.options['MaxTime'] = -1
-# solver.options['DeltaTerm'] = 1
-# solver.options['DeltaT'] = -200
-# solver.options['TolRel'] = 1e-6  
+solver.options['MaxIter'] = 1000
+solver.options['PrLevel'] = 5 
+solver.options['TolRel'] = 1e-6  
 
 result = solver.solve(model, tee=True, logfile="baron_prac_data.txt")  # 'tee=True' will display solver output in the terminal
 
@@ -362,63 +224,13 @@ Ixi_vals = np.array([pyo.value(model.Ixi[i]) for i in range(n)]).reshape(-1,1)
 I2xr_vals = np.array([pyo.value(model.I2xr[i]) for i in range(n)]).reshape(-1,1)
 I2xi_vals = np.array([pyo.value(model.I2xi[i]) for i in range(n)]).reshape(-1,1)
 # St_vals = np.array([pyo.value(model.St[i]) for i in range(n)]).reshape(-1,1)
-# sj_var = np.array([pyo.value(model.sj[i]) for i in range(sizeSj)]).reshape(-1,1)
+sj_var = np.array([pyo.value(model.sj[i]) for i in range(sizeSj)]).reshape(-1,1)
 
 # Stot_val = np.sum(St_vals)
 # print(Stot_val)
 
-#need to switch terms around
+print("Transformer selection vector: ", sj_var)
 
-# rP1 = sum(Gl12[0,j]*(V2r_vals[j]*(V2r_vals[j] - Vsr[j]) + V2i_vals[j]*(V2i_vals[j] - Vsi[j])) \
-#     - Bl12[0,j]*(V2r_vals[j]*(V2i_vals[j] - Vsi[j]) - V2i_vals[j]*(V2r_vals[j] - Vsr[j])) for j in range(n))
-
-# rP2 = sum(Gl12[1,j]*(V2r_vals[j]*(V2r_vals[j] - Vsr[j]) + V2i_vals[j]*(V2i_vals[j] - Vsi[j])) \
-#     - Bl12[1,j]*(V2r_vals[j]*(V2i_vals[j] - Vsi[j]) - V2i_vals[j]*(V2r_vals[j] - Vsr[j])) for j in range(n))
-
-# rP3 = sum(Gl12[2,j]*(V2r_vals[j]*(V2r_vals[j] - Vsr[j]) + V2i_vals[j]*(V2i_vals[j] - Vsi[j])) \
-#     - Bl12[2,j]*(V2r_vals[j]*(V2i_vals[j] - Vsi[j]) - V2i_vals[j]*(V2r_vals[j] - Vsr[j])) for j in range(n))
-
-# rP = rP1.item() + rP2.item() + rP3.item()
-
-# iQ1 = sum(Gl12[0,j]*(V2r_vals[j]*(V2i_vals[j]-Vsi[j]) - V2i_vals[j]*(V2r_vals[j]-Vsr[j])) \
-#       + Bl12[0,j]*(V2r_vals[j]*(V2r_vals[j]-Vsr[j]) - V2i_vals[j]*(V2i_vals[j]-Vsi[j])) for j in range(n))
-
-# iQ2 = sum(Gl12[1,j]*(V2r_vals[j]*(V2i_vals[j]-Vsi[j]) - V2i_vals[j]*(V2r_vals[j]-Vsr[j])) \
-#       + Bl12[1,j]*(V2r_vals[j]*(V2r_vals[j]-Vsr[j]) - V2i_vals[j]*(V2i_vals[j]-Vsi[j])) for j in range(n))
-
-# iQ3 = sum(Gl12[2,j]*(V2r_vals[j]*(V2i_vals[j]-Vsi[j]) - V2i_vals[j]*(V2r_vals[j]-Vsr[j])) \
-#       + Bl12[2,j]*(V2r_vals[j]*(V2r_vals[j]-Vsr[j]) - V2i_vals[j]*(V2i_vals[j]-Vsi[j])) for j in range(n))
-
-rP1 = sum(Gl12[0,j]*(V2r_vals[j]*(Vsr[j] - V2r_vals[j]) + V2i_vals[j]*(Vsi[j] - V2i_vals[j])) \
-    - Bl12[0,j]*(V2r_vals[j]*(Vsi[j] - V2i_vals[j]) - V2i_vals[j]*(Vsr[j] - V2r_vals[j])) for j in range(n))
-
-rP2 = sum(Gl12[1,j]*(V2r_vals[j]*(Vsr[j] - V2r_vals[j]) + V2i_vals[j]*(Vsi[j] - V2i_vals[j])) \
-    - Bl12[1,j]*(V2r_vals[j]*(Vsi[j] - V2i_vals[j]) - V2i_vals[j]*(Vsr[j] - V2r_vals[j])) for j in range(n))
-
-rP3 = sum(Gl12[2,j]*(V2r_vals[j]*(Vsr[j] - V2r_vals[j]) + V2i_vals[j]*(Vsi[j] - V2i_vals[j])) \
-    - Bl12[2,j]*(V2r_vals[j]*(Vsi[j] - V2i_vals[j]) - V2i_vals[j]*(Vsr[j] - V2r_vals[j])) for j in range(n))
-
-rP = rP1.item() + rP2.item() + rP3.item()
-iQ1 = sum(Gl12[0,j]*(V2r_vals[j]*(Vsi[j] - V2i_vals[j]) - V2i_vals[j]*(Vsr[j] - V2r_vals[j])) \
-      + Bl12[0,j]*(V2r_vals[j]*(Vsr[j] - V2r_vals[j]) - V2i_vals[j]*(Vsi[j] - V2i_vals[j])) for j in range(n))
-
-iQ2 = sum(Gl12[1,j]*(V2r_vals[j]*(Vsi[j] - V2i_vals[j]) - V2i_vals[j]*(Vsr[j] - V2r_vals[j])) \
-      + Bl12[1,j]*(V2r_vals[j]*(Vsr[j] - V2r_vals[j]) - V2i_vals[j]*(Vsi[j] - V2i_vals[j])) for j in range(n))
-
-iQ3 = sum(Gl12[2,j]*(V2r_vals[j]*(Vsi[j] - V2i_vals[j]) - V2i_vals[j]*(Vsr[j] - V2r_vals[j])) \
-      + Bl12[2,j]*(V2r_vals[j]*(Vsr[j] - V2r_vals[j]) - V2i_vals[j]*(Vsi[j] - V2i_vals[j])) for j in range(n))
-
-iQ = iQ1.item() + iQ2.item() + iQ3.item()
-rP11 = rP3.item()
-iQ11 = iQ3.item()
-something = sqrt(rP11**2 +iQ11**2)
-print(something)
-# rP01 = rP.item()
-# iQ01 = iQ.item()
-Smag1 = rP**2+iQ**2
-Smag = sqrt(Smag1)
-print(Smag)
-# print("Transformer selection vector: ", sj_var)
 
 
 
@@ -446,20 +258,12 @@ while iterate <=6:
     print("c-phase magnitude: ", c, "angle: ", f)
     iterate +=1
     
-Pa = pyomo.environ.value(model.V2r[0]*model.Ixr[0]+model.V2i[0]*model.Ixi[0])
-Pb = pyomo.environ.value(model.V2r[1]*model.Ixr[1]+model.V2i[1]*model.Ixi[1])
-Pc= pyomo.environ.value(model.V2r[2]*model.Ixr[2]+model.V2i[2]*model.Ixi[2])
-Qa = pyomo.environ.value(model.V2i[0]*model.Ixr[0]-model.V2r[0]*model.Ixi[0])
-Qb = pyomo.environ.value(model.V2i[1]*model.Ixr[1]-model.V2r[1]*model.Ixi[1])
-Qc = pyomo.environ.value(model.V2i[2]*model.Ixr[2]-model.V2r[2]*model.Ixi[2])
-Ptot = Pa + Pb + Pc
-Qtot = Qa + Qb + Qc
-
-Sa = pyomo.environ.sqrt(Pa**2 + Qa**2)
-Sb = pyomo.environ.sqrt(Pb**2 + Qb**2)
-Sc = pyomo.environ.sqrt(Pc**2 + Qc**2)
-Stot = pyomo.environ.sqrt(Ptot**2 + Qtot**2)
-
+Sa1 = pyomo.environ.value((model.V2r[0]*model.Ixr[0]+model.V2i[0]*model.Ixi[0])**2 + (model.V2i[0]*model.Ixr[0]-model.V2r[0]*model.Ixi[0])**2)
+Sb1 = pyomo.environ.value((model.V2r[1]*model.Ixr[1]+model.V2i[1]*model.Ixi[1])**2 + (model.V2i[1]*model.Ixr[1]-model.V2r[1]*model.Ixi[1])**2)
+Sc1= pyomo.environ.value((model.V2r[2]*model.Ixr[2]+model.V2i[2]*model.Ixi[2])**2 + (model.V2i[2]*model.Ixr[2]-model.V2r[2]*model.Ixi[2])**2)
+Sa = pyomo.environ.sqrt(Sa1)
+Sb = pyomo.environ.sqrt(Sb1)
+Sc = pyomo.environ.sqrt(Sc1)
 Stot = Sa + Sb + Sc
 print("Apparent per phase power at Transformer: ", Sa, "and", Sb, "and", Sc)
 print("Apparent power at Transformer: ", Stot)
@@ -488,5 +292,3 @@ print("Apparent power at Transformer: ", Stot)
 # plt.legend()
 # plt.grid()
 # plt.show()
-
-print(range(sizeSj))
