@@ -19,6 +19,7 @@ model = ConcreteModel()
 PL = 1800000 #load real power
 QL = (PL/0.9)*math.sin(math.acos(0.9)) #load reactive power
 VoltageH = 12470/np.sqrt(3) #primary voltage rms
+Vupper = 12470
 VoltageL = 4160 #secondary voltage magnitude (need in this form for calculating Zbase for the transformer)
 Vlower = 4160/np.sqrt(3)
 nt = 12470/4160 #number of turns ratio for transformer
@@ -47,7 +48,7 @@ Vsi = np.array([
 InitI = np.ones((3,1))
 Xinit = np.vstack((Vsr, Vsi, Vsr, Vsi, (1/nt)*Vsr, (1/nt)*Vsi, (1/nt)*Vsr, (1/nt)*Vsi, InitI, InitI, InitI, InitI, InitI, InitI))
 
-ztbase = (VoltageL**2)/kVAt #this is going to calculate the base 'z' for my transformer
+ztbase = (Vupper**2)/kVAt #this is going to calculate the base 'z' for my transformer
 ztpu = 0.01+0.06j #per unit reactance of transformer per phase
 zt = ztpu*ztbase  #actual reactance of the lines given per unit measures and z_base
 

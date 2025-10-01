@@ -162,7 +162,7 @@ rows1 = jnp.zeros((numMCeq,3))
 base1 = jnp.tile(rows1, (3,1))
 bVec = jnp.zeros((base.shape[0],1))
 #create an empty array for each variable
-array1 = ['V4r', 'V4i','v', 'w', 'x0', 'y0', 'z0', 'x1', 'y1', 'z1']
+array1 = ['v4r', 'v4i','v', 'w', 'x0', 'y0', 'z0', 'x1', 'y1', 'z1']
 names1 = {name: base1.copy() for name in array1}
 lil = jnp.eye(3)@upper[6:9,:]
         
