@@ -155,7 +155,7 @@ for i in range(rows.size):
 A1 = jnp.column_stack([names[key] for key in array])
 print(A1.shape)
 print(len(names))
-numMCeq = (4*4) + (2*3)
+numMCeq = 4*4 +2*3
 #Create rows based on single phase representation of problem
 rows1 = jnp.zeros((numMCeq,3))
 #Increase to 3-phase
@@ -280,16 +280,7 @@ A2 = jnp.column_stack([names1[key1] for key1 in array1])
 print(A2.shape)
 print('####')
 print(len(names))
-    # if 2 < i < 6:
-        
-    # names['z'] = names['z'].at[i].set((jnp.eye(3)@upper[6:9,:])[i,:]) #xYU
-    # names['w'] = names['w'].at[i].set((jnp.eye(3)@upper[12:15,:])[i,:]) #yXU
-    # names['x'] = names['x'].at[i].set(-jnp.eye(3)[i,:])
-    # if 2<i<6:
-    #     bVec[i] = -upper[i+9]*lower[i+3]
-    #     names['z'] = names['z'].at[i].set((jnp.eye(3)@upper[6:9,:])[i,:]) #xYU
-    #     names['w'] = names['w'].at[i].set((jnp.eye(3)@upper[12:15,:])[i,:]) #yXU
-    #     names['x'] = names['x'].at[i].set(-jnp.eye(3)[i,:])
+
 """
 So I will need, for each phase, three of these
 And these are all McCormick equations

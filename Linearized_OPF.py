@@ -185,20 +185,20 @@ def equality_constraint14(model, i):
         model.z1[i] ==0
 
 #define function which replace nonlinearity in equality constraint 13 and 14
-def equality_constraint15a(model, i):
-    return (PL*model.V4r[i] + QL*model.V4i[i]) == model.x0[i] + model.y0[i] # model.z0[i]*(model.w[i] + model.v[i])
-def equality_constraint15b(model, i):
-    return model.x0[i] == model.z0[i]*model.w[i]
-def equality_constraint15c(model, i):
-    return model.y0[i] == model.z0[i]*model.v[i]
+# def equality_constraint15a(model, i):
+#     return (PL*model.V4r[i] + QL*model.V4i[i]) == model.x0[i] + model.y0[i] # model.z0[i]*(model.w[i] + model.v[i])
+# def equality_constraint15b(model, i):
+#     return model.x0[i] == model.z0[i]*model.w[i]
+# def equality_constraint15c(model, i):
+#     return model.y0[i] == model.z0[i]*model.v[i]
 
-def equality_constraint16a(model, i):
-    return (PL*model.V4i[i] - QL*model.V4r[i]) == model.z1[i]*(model.w[i] + model.v[i]) #model.x1[i] + model.y1[i]
-def equality_constraint16b(model, i):
-    return model.x1[i] == model.z1[i]*model.w[i]
-def equality_constraint16c(model, i):
-    return model.y1[i] == model.z1[i]*model.v[i]
-# #
+# def equality_constraint16a(model, i):
+#     return (PL*model.V4i[i] - QL*model.V4r[i]) == model.z1[i]*(model.w[i] + model.v[i]) #model.x1[i] + model.y1[i]
+# def equality_constraint16b(model, i):
+#     return model.x1[i] == model.z1[i]*model.w[i]
+# def equality_constraint16c(model, i):
+#     return model.y1[i] == model.z1[i]*model.v[i]
+# # #
 #These are going to be the constraints for the quadratic McCormick
 def QuadMcCor(x, y, XU, XL):
     return[
