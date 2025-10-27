@@ -1,7 +1,9 @@
 import math
 import numpy as np
 import jax
+jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
+
 """ 
 It is helpful to note the following
 1. Voltage variables go from 1-n and are of the order V1r, v1i, v2r, v2i,....
@@ -30,16 +32,16 @@ class Line:
         if in_out == 'out':
             #                    n1r      n2r      n1i      n2i
             node_1 = jnp.block([[G_line,-B_line],
-                                [B_line, G_line]])
+                                [B_line, G_line]]).astype(jnp.float64)
             node_2 = jnp.block([[-G_line,B_line],
-                                [-B_line,-G_line]])
+                                [-B_line,-G_line]]).astype(jnp.float64)
         elif in_out == 'in':
             #                    n1r      n2r      n1i      n2i
             node_1 = jnp.block([[-G_line,B_line,],
-                                [-B_line,-G_line]])
+                                [-B_line,-G_line]]).astype(jnp.float64)
             
             node_2 = jnp.block([[G_line,-B_line],
-                                [B_line,G_line]])
+                                [B_line,G_line]]).astype(jnp.float64)
         else:
             print('error')
         return node_1, node_2    
@@ -61,24 +63,28 @@ class Transformer:
         self.zpu = Z_PU
         Transformer.all_trans.append(self)
     def admit_mat(self, in_out):
-        Ztbase = (self.vRate)**2/self.t_rate
-        zt = Ztbase*self.zpu
-        Ad_mat = zt*jnp.eye(3)
+        Ztbase = jnp.array((self.vRate)**2 / self.t_rate, dtype=jnp.float64)
+        zt = Ztbase * jnp.array(self.zpu, dtype=jnp.complex128)
+        Ad_mat = (zt*jnp.eye(3,dtype=jnp.float64))
         Ytr = jnp.linalg.inv(Ad_mat)
         Gtr = Ytr.real
         Btr = Ytr.imag
-        one_nt_sqr = 1/(self.nt)**2
-        one_nt = 1/self.nt
+        # tol = 1e-12
+        # Gtr = jnp.where(jnp.abs(Gtr) < tol, 0.0, Gtr)
+        # Btr = jnp.where(jnp.abs(Btr) < tol, 0.0, Btr)
+        one_nt = jnp.array(1/self.nt, dtype=jnp.float64)
+        one_nt_sqr = one_nt**2
+        nt = self.nt
         if in_out == 'out':
-            T_flow_node_1 = jnp.block([[one_nt_sqr*Gtr,-one_nt_sqr*Btr],
-                                       [one_nt_sqr*Btr,one_nt_sqr*Gtr]])
-            T_flow_node_2 = jnp.block([[-one_nt*Gtr,one_nt*Btr],
-                                       [-one_nt*Btr,-one_nt*Gtr]])
+            T_flow_node_1 = jnp.block([[Gtr, -Btr],
+                                       [Btr,Gtr]]).astype(jnp.float64)
+            T_flow_node_2 = jnp.block([[-(nt)*Gtr,(nt)*Btr],
+                                       [-(nt)*Btr,-(nt)*Gtr]]).astype(jnp.float64)
         elif in_out == 'in':
-            T_flow_node_1 = jnp.block([[-one_nt*Gtr, one_nt*Btr],
-                                       [-one_nt*Btr,-one_nt*Gtr]])
-            T_flow_node_2 = jnp.block([[Gtr,-Btr],
-                                       [Btr,Gtr]])
+            T_flow_node_1 = -(nt)*jnp.block([[Gtr, -Btr],
+                                       [Btr,Gtr]]).astype(jnp.float64)
+            T_flow_node_2 = -(nt)*jnp.block([[-(nt)*Gtr,(nt)*Btr],
+                                       [-(nt)*Btr,-(nt)*Gtr]]).astype(jnp.float64)
         else:
             print('error1')
         return T_flow_node_1, T_flow_node_2
@@ -93,23 +99,27 @@ class Load:
     def __init__(self, name, from_node, realP_vec, pf_Vec):
         self.id = name
         self.from_node = from_node
-        self.realP = jnp.array(realP_vec, dtype=float)
-        self.pf = jnp.array(pf_Vec, dtype=float)
+        self.realP = jnp.array(realP_vec, dtype=jnp.float64)
+        self.pf = jnp.array(pf_Vec, dtype=jnp.float64)
         angle = jnp.arccos(self.pf)
-        self.imagQ = realP_vec*jnp.tan(angle)
+        self.imagQ = self.realP*jnp.tan(angle)
         self.c_type = 'Load'
         self.load_num = len(Load.all_loads) + 1
         Load.all_loads.append(self)
-    def current_matrix(self, in_out):
+    def current_matrix(self,in_out):
         if in_out == 'in':
-            Load_mat = jnp.block([[-jnp.eye(3), jnp.zeros((3,3))],
-                                [jnp.zeros((3,3)), -jnp.eye(3)]])
+            Load_mat1 = -jnp.eye(3)
+            Load_mat2 = -jnp.block([[jnp.diag(self.realP), jnp.diag(self.imagQ)],
+                                   [-jnp.diag(self.imagQ), jnp.diag(self.realP)]]).astype(jnp.float64)
+            Load_mat3 = -jnp.block([[-jnp.eye(3), -jnp.eye(3)]]).astype(jnp.float64)
         elif in_out == 'out':
-            Load_mat = jnp.block([[jnp.eye(3), jnp.zeros((3,3))],
-                                [jnp.zeros((3,3)), jnp.eye(3)]])
+            Load_mat1 = jnp.eye(3)
+            Load_mat2 = jnp.block([[jnp.diag(self.realP), jnp.diag(self.imagQ)],
+                                   [-jnp.diag(self.imagQ), jnp.diag(self.realP)]]).astype(jnp.float64)
+            Load_mat3 = jnp.block([[-jnp.eye(3), -jnp.eye(3)]]).astype(jnp.float64).astype(jnp.float64)
         else:
             print('error')
-        return Load_mat
+        return Load_mat1, Load_mat2, Load_mat3
     def McCormick(self):
         return
     def __repr__(self):
@@ -130,10 +140,10 @@ class Generator:
         #if we consider current leaving and entering
         if in_out == 'in':
             Gen_mat = jnp.block([[-jnp.eye(3), jnp.zeros((3,3))],
-                                [jnp.zeros((3,3)), -jnp.eye(3)]])
+                                [jnp.zeros((3,3)), -jnp.eye(3)]]).astype(jnp.float64)
         elif in_out == 'out':
             Gen_mat = jnp.block([[jnp.eye(3), jnp.zeros((3,3))],
-                                [jnp.zeros((3,3)), jnp.eye(3)]])
+                                [jnp.zeros((3,3)), jnp.eye(3)]]).astype(jnp.float64)
         else:
             print('error')
         return Gen_mat
@@ -185,16 +195,20 @@ def McCor_relax(XL, XU, YL, YU, phases):
     XU = XU.flatten()
     YL = YL.flatten()
     YU = YU.flatten()
-    b = jnp.zeros((4*n,1))
-    x = jnp.zeros((4*n,n))
-    y = jnp.zeros((4*n,n))
-    z = jnp.zeros((4*n,n))
-    const = jnp.zeros((4*n,4))
+    b = jnp.zeros((4*n,1)).astype(jnp.float64)
+    x = jnp.zeros((4*n,n)).astype(jnp.float64)
+    y = jnp.zeros((4*n,n)).astype(jnp.float64)
+    z = jnp.zeros((4*n,n)).astype(jnp.float64)
+    const = jnp.zeros((4*n,4)).astype(jnp.float64)
     for i in range(n):
         const = const.at[i,:].set(jnp.array([XU[i]*YU[i], YU[i], XU[i], -1]))
-        const = const.at[n+i,:].set(jnp.array([-XU[i]*YL[i], -YL[i], XU[i], 1]))
-        const = const.at[2*n+i,:].set(jnp.array([-XL[i]*YU[i], -YU[i], XL[i], 1]))
+        const = const.at[n+i,:].set(jnp.array([-XU[i]*YL[i], -YL[i], -XU[i], 1]))
+        const = const.at[2*n+i,:].set(jnp.array([-XL[i]*YU[i], -YU[i], -XL[i], 1]))
         const = const.at[3*n+i,:].set(jnp.array([XL[i]*YL[i], YL[i], XL[i], -1]))
+#     XU*YU >= YU*x + XU*y - z,
+#     -XU*YL >= z - YL*x - XU*y,
+#     -XL*YU >= z - YU*x - XL*y ,
+#     XL*YL >= YL*x + XL*y - z
     for i in range(4):
         b = b.at[i*n:(i+1)*n,0].set(const[i*n:(i+1)*n,0])
         x = x.at[i*n:(i+1)*n,:].set(jnp.eye(n) * const[i*n:(i+1)*n,1:2])
@@ -212,10 +226,10 @@ def Quad_relax(XL, XU, phases):
     n = len(phases)
     XL = XL.flatten()
     XU = XU.flatten()
-    b = jnp.zeros((3*n, 1))
-    x = jnp.zeros((3*n, n))
+    b = jnp.zeros((3*n, 1)).astype(jnp.float64)
+    x = jnp.zeros((3*n, n)).astype(jnp.float64)
     y = x.copy()
-    const = jnp.zeros((3*n,3))
+    const = jnp.zeros((3*n,3)).astype(jnp.float64)
     for i in range(n):
         const = const.at[i,:].set(jnp.array([XU[i]**2, 2*XU[i], -1]))
         const = const.at[n+i,:].set(jnp.array([XL[i]**2, 2*XL[i], -1]))
@@ -243,6 +257,7 @@ def connected_to(node):
         if gen.to_node == node:
             connected.append(gen)
     return connected
+
 def powerflow(nodes,variables,phases,positions):
     """what do I need to know in order to construct this matrix...
     The node corresponds directly to columns being used
@@ -261,18 +276,24 @@ def powerflow(nodes,variables,phases,positions):
     3. Same for to_node.  I need to do it this way because generator and load class are missing from_node and to_node respectively
     I think for line of the mccormick constraint I will do each phase before moving to the enxt
     """
-    A_mat = jnp.zeros((0,len(variables)))
-
+    A_mat = jnp.zeros((0, len(variables)), dtype=jnp.float64)
+    phs = len(phases)
     for i in range(1, nodes+1):
-        connected_to_1 = connected_to(i)
-        # print(f"Components connected to node {i}:")
-        #For each instance connected to a specified node:
-        eq_mat = jnp.zeros((2*len(phases), len(variables)))
-        for c in connected_to_1:
-            node_mat = jnp.zeros((2*len(phases), len(variables)))
+        connected_nodes = connected_to(i)
+        if any ('Load' in item.id for item in connected_nodes):
+            eq_mat = jnp.zeros((4*len(phases), len(variables)), dtype=jnp.float64)
+            # b_out = jnp.zeros((4*len(phases),1))
+        else:
+            eq_mat = jnp.zeros((2*len(phases), len(variables)), dtype=jnp.float64)
+            # b_out = jnp.zeros((2*len(phases),1))
+        for c in connected_nodes:
+            if any ('Load' in item.id for item in connected_nodes):
+                node_mat = jnp.zeros((4*len(phases), len(variables)), dtype=jnp.float64)
+            else:
+                node_mat = jnp.zeros((2*len(phases), len(variables)), dtype=jnp.float64)
             instance = c
-            print(instance)
-            print(instance.id)
+            # print(instance)
+            # print(instance.id)
             #if that node has a "from_key"...trying to isolate things to input into my matrix
             #This is important for figuring out which matrix to choose from each class' respective method
             if hasattr(instance, "from_node"):
@@ -283,18 +304,26 @@ def powerflow(nodes,variables,phases,positions):
                         line_mat1, line_mat2 = instance.admit_mat(in_out = 'out')
                         index_val1 = 6*(instance.from_node - 1)
                         index_val2 = 6*(instance.to_node - 1)
-                        node_mat = node_mat.at[:,index_val1:index_val1+6].set(line_mat1)
-                        node_mat = node_mat.at[:,index_val2:index_val2+6].set(line_mat2)
+                        node_mat = node_mat.at[0:2*phs,index_val1:index_val1+6].set(line_mat1)
+                        node_mat = node_mat.at[0:2*phs,index_val2:index_val2+6].set(line_mat2)
+                        # b = jnp.zeros((2*len(phases),1))
                     elif instance.c_type == 'Transformer':
                         t_mat1, t_mat2 = instance.admit_mat('out')
                         index_val1 = 6*(instance.from_node - 1)
                         index_val2 = 6*(instance.to_node - 1)
-                        node_mat = node_mat.at[:,index_val1:index_val1+6].set(t_mat1)
-                        node_mat = node_mat.at[:,index_val2:index_val2+6].set(t_mat2)
+                        node_mat = node_mat.at[0:2*phs,index_val1:index_val1+6].set(t_mat1)
+                        node_mat = node_mat.at[0:2*phs,index_val2:index_val2+6].set(t_mat2)
+                        # b = jnp.zeros((2*len(phases),1))
                     elif instance.c_type == 'Load':
-                        l_mat = instance.current_matrix('out')
-                        index_val = positions['loads'][0] + 6*(instance.load_num - 1)
-                        node_mat = node_mat.at[:,index_val:index_val+6].set(l_mat)
+                        l_mat1, l_mat2, l_mat3 = instance.current_matrix('out')
+                        index_val1 = positions['Mc_Vars'][0] + 8*phs*(instance.load_num - 1)
+                        index_val2 = 2*phs*(instance.from_node - 1)
+                        node_mat = node_mat.at[0:phs,index_val1+2*phs:index_val1+3*phs].set(l_mat1)
+                        node_mat = node_mat.at[phs:2*phs,index_val1+5*phs:index_val1+6*phs].set(l_mat1)
+                        node_mat = node_mat.at[2*phs:4*phs, index_val2:index_val2+2*phs].set(l_mat2)
+                        node_mat = node_mat.at[2*phs:3*phs, index_val1:index_val1+2*phs].set(l_mat3)
+                        node_mat = node_mat.at[3*phs:4*phs, index_val1+3*phs:index_val1+5*phs].set(l_mat3)
+                        # b = jnp.zeros((4*len(phases),1))
                 #for current going into the node
             if hasattr(instance, "to_node"):
                 if instance.to_node == i:
@@ -302,22 +331,26 @@ def powerflow(nodes,variables,phases,positions):
                         line_mat1, line_mat2 = instance.admit_mat('in')
                         index_val1 = 6*(instance.from_node - 1)
                         index_val2 = 6*(instance.to_node - 1)
-                        node_mat = node_mat.at[:,index_val1:index_val1+6].set(line_mat1)
-                        node_mat = node_mat.at[:,index_val2:index_val2+6].set(line_mat2)
+                        node_mat = node_mat.at[0:2*phs,index_val1:index_val1+6].set(line_mat1)
+                        node_mat = node_mat.at[0:2*phs,index_val2:index_val2+6].set(line_mat2)
+                        # b = jnp.zeros((2*len(phases),1))
                     elif instance.c_type == 'Transformer':
                         t_mat1, t_mat2 = instance.admit_mat('in')
                         index_val1 = 6*(instance.from_node - 1)
                         index_val2 = 6*(instance.to_node - 1)
-                        node_mat = node_mat.at[:,index_val1:index_val1+6].set(t_mat1)
-                        node_mat = node_mat.at[:,index_val2:index_val2+6].set(t_mat2)
+                        node_mat = node_mat.at[0:2*phs,index_val1:index_val1+6].set(t_mat1)
+                        node_mat = node_mat.at[0:2*phs,index_val2:index_val2+6].set(t_mat2)
+                        # b = jnp.zeros((2*len(phases),1))
                     elif instance.c_type == 'Generator':
                         gen_mat = instance.current_matrix('in')
                         index_val = positions['generators'][0]+6*(instance.gen_num - 1)
-                        node_mat = node_mat.at[:,index_val:index_val+6].set(gen_mat)
+                        node_mat = node_mat.at[0:2*phs,index_val:index_val+6].set(gen_mat)
                         # print(line_mat1, line_mat2)
+                        # b = jnp.zeros((2*len(phases),1))
             eq_mat = eq_mat + node_mat
+            # b = b_out+b
         A_mat = jnp.vstack([A_mat,eq_mat])
-    return A_mat
+    return A_mat #, b
 """ 
 P*V4r + QV4i = z(V4r^2+V4i^2) = z(w+v) = x+y 
 x = zv
@@ -330,18 +363,19 @@ y1 = z1w
 v = V4r^2
 w = V4i^2
 """
-def MC_Stack(temp_mat, big_b,position_matrix,row1,xinit,yinit,zinit,x,y,z,b,phs):
-    x_block = x.reshape(phs,-1)
-    y_block = y.reshape(phs,-1)
-    z_block = z.reshape(phs,-1)
-    b = b.reshape(phs,-1)
-    for i in range(4):
-        temp_mat = temp_mat.at[row1:row1+phs, position_matrix[0]+xinit*phs:(position_matrix[0]+xinit*phs)+phs].set(jnp.eye(phs)@x_block[:,i])
-        temp_mat = temp_mat.at[row1:row1+phs, position_matrix[0]+yinit*phs:(position_matrix[0]+yinit*phs)+phs].set(jnp.eye(phs)@y_block[:,i])
-        temp_mat = temp_mat.at[row1:row1+phs, position_matrix[0]+zinit*phs:(position_matrix[0]+zinit*phs)+phs].set(jnp.eye(phs)@z_block[:,i])
-        big_b = big_b.at[row1:row1+phs,:].set(b[phs*i:phs*(i+1),:])
-        row1 +=phs
-    return temp_mat, big_b
+# def MC_Stack(temp_mat, big_b,position_matrix,row1,xinit,yinit,zinit,x,y,z,b,phs):
+#     x_block = x.reshape(phs,-1)
+#     y_block = y.reshape(phs,-1)
+#     z_block = z.reshape(phs,-1)
+#     b = b.reshape(phs,-1)
+#     for i in range(4):
+#         temp_mat = temp_mat.at[row1:row1+phs, position_matrix[0]+xinit*phs:(position_matrix[0]+xinit*phs)+phs].set(jnp.eye(phs)@x_block[:,i])
+#         temp_mat = temp_mat.at[row1:row1+phs, position_matrix[0]+yinit*phs:(position_matrix[0]+yinit*phs)+phs].set(jnp.eye(phs)@y_block[:,i])
+#         temp_mat = temp_mat.at[row1:row1+phs, position_matrix[0]+zinit*phs:(position_matrix[0]+zinit*phs)+phs].set(jnp.eye(phs)@z_block[:,i])
+#         big_b = big_b.at[row1:row1+phs,:].set(b[phs*i:phs*(i+1),:])
+#         row1 +=phs
+#     return temp_mat, big_b
+
 def MC_Stack(temp_mat, big_b, position_matrix, row1, xinit, yinit, zinit, x, y, z, b, phs):
     col_x = position_matrix[0] + xinit * phs
     col_y = position_matrix[0] + yinit * phs
@@ -352,9 +386,9 @@ def MC_Stack(temp_mat, big_b, position_matrix, row1, xinit, yinit, zinit, x, y, 
     temp_mat = temp_mat.at[row1:row1+4*phs, col_z:col_z+phs].set(z)
     big_b = big_b.at[row1:row1+4*phs, :].set(b)
     return temp_mat, big_b
-def Quad_Stack(temp_mat,big_b, position_matrix,row1,xinit,yinit,x,y,b,phs):
+def Quad_Stack(temp_mat,big_b,row1,xinit,yinit,x,y,b,phs):
     temp_mat = temp_mat.at[row1:row1+3*phs,xinit:xinit+phs].set(x)
-    temp_mat = temp_mat.at[row1:row1+3*phs,position_matrix[0]+yinit*phs:(position_matrix[0]+yinit*phs)].set(y)
+    temp_mat = temp_mat.at[row1:row1+3*phs,yinit:yinit+phs].set(y)
     big_b = big_b.at[row1:row1+3*phs,:].set(b)
     return temp_mat, big_b
 
@@ -366,21 +400,34 @@ def McC_Load(upperBs, lowerBs, variables, phases, position_matrix,load_node):
     big_b = jnp.zeros((12*4+9*2,1))
     # num_loads = len(Load.all_loads)
     #key for each of the variables:xr, yr, zr, zi, yi, zi, vi, wi are numbered 0-7
+     #so the order I will do the upper and lower bounds will be zr, zi, v, w, Vr, Vi
     b1, zr1, v1, xr1, = McCor_relax(lowerBs[0:3,:], upperBs[0:3,:], lowerBs[6:9,:], upperBs[6:9,:],phases)
-    temp_mat, big_b = MC_Stack(temp_mat, big_b, position_matrix,(0*4*phs),2,6,0,zr1,v1,xr1,b1,phs)
-    # b2, zr2, w1, yr1, = McCor_relax(lowerBs[0:3,:], upperBs[0:3,:], lowerBs[9:12,:], upperBs[9:12,:],phases)
-    # temp_mat, big_b = MC_Stack(temp_mat, big_b,position_matrix,1*4*phs,2,7,1,zr2, w1, yr1,b2,phs)
-    # b3, zi1, v2, xi2, = McCor_relax(lowerBs[3:6,:], upperBs[3:6,:], lowerBs[6:9,:], upperBs[6:9,:],phases)
-    # temp_mat, big_b = MC_Stack(temp_mat, big_b,position_matrix,2*4*phs,5,6,3,zi1,v2,xi2,b3,phs)
-    # b4, zi2, w2, yi2, = McCor_relax(lowerBs[3:6,:], upperBs[3:6,:], lowerBs[9:12,:], upperBs[9:12,:],phases)
-    # temp_mat, big_b = MC_Stack(temp_mat, big_b,position_matrix,3*4*phs,5,7,4,zi2,w2,yi2,b4,phs)
-    # b5, Vr, v3 = Quad_relax(lowerBs[12:15,0], upperBs[12:15,0], phases)
-    # temp_mat, big_b = Quad_Stack(temp_mat, big_b, position_matrix,4*4*phs,V_indx, 6, Vr, v3, b5,phs)
-    # b6, Vi, w3 = Quad_relax(lowerBs[15:18,0], upperBs[15:18,0], phases)
-    # temp_mat, big_b = Quad_Stack(temp_mat, big_b, position_matrix,4*4*phs+3*phs,V_indx+phs, 7, Vi, w3, b6,phs)
+    temp_mat0, big_b0= MC_Stack(temp_mat, big_b, position_matrix,(0*4*phs),2,6,0,zr1,v1,xr1,b1,phs)
+    temp_mat +=temp_mat0
+    big_b += big_b0
+    b2, zr2, w1, yr1, = McCor_relax(lowerBs[0:3,:], upperBs[3:6,:], lowerBs[9:12,:], upperBs[9:12,:],phases)
+    temp_mat1, big_b1 = MC_Stack(temp_mat0, big_b0,position_matrix,1*4*phs,2,7,1,zr2, w1, yr1,b2,phs)
+    temp_mat +=temp_mat1
+    big_b += big_b1
+    b3, zi1, v2, xi2, = McCor_relax(lowerBs[3:6,:], upperBs[3:6,:], lowerBs[6:9,:], upperBs[6:9,:],phases)
+    temp_mat2, big_b2 = MC_Stack(temp_mat1, big_b1,position_matrix,2*4*phs,5,6,3,zi1,v2,xi2,b3,phs)
+    temp_mat +=temp_mat2
+    big_b += big_b2
+    b4, zi2, w2, yi2, = McCor_relax(lowerBs[3:6,:], upperBs[3:6,:], lowerBs[9:12,:], upperBs[9:12,:],phases)
+    temp_mat3, big_b3 = MC_Stack(temp_mat2, big_b2,position_matrix,3*4*phs,5,7,4,zi2,w2,yi2,b4,phs)
+    temp_mat +=temp_mat3
+    big_b += big_b3
+    b5, Vr, v3 = Quad_relax(lowerBs[12:15,0], upperBs[12:15,0], phases)
+    temp_mat4, big_b4 = Quad_Stack(temp_mat3, big_b3,4*4*phs,V_indx, position_matrix[0]+6*phs, Vr, v3, b5,phs)
+    temp_mat +=temp_mat4
+    big_b += big_b4
+    b6, Vi, w3 = Quad_relax(lowerBs[15:18,0], upperBs[15:18,0], phases)
+    # print(w3)
+    temp_mat5, big_b5 = Quad_Stack(temp_mat4, big_b4,4*4*phs+3*phs,V_indx+phs,position_matrix[0]+7*phs, Vi, w3, b6,phs)
         #order xr, yr, zr, xi, yi, zi, v, w
         #have to figure out how to stamp Vr, Vi
-
+    temp_mat +=temp_mat5
+    big_b += big_b5
     return temp_mat, big_b
 
 def init_func(node,phases,Vupper,variables):
@@ -397,35 +444,36 @@ def init_func(node,phases,Vupper,variables):
         [Vupper * jnp.sin(jnp.radians(120))]
     ])
     init_matrix = jnp.zeros((6,len(variables)))
-    init_matrix = init_matrix.at[start_node:start_node+phs,start_node:start_node+phs].set(jnp.eye(3)@jnp.diag(Vsr.flatten()))
-    init_matrix = init_matrix.at[start_node+phs:start_node+2*phs,start_node+phs:start_node+2*phs].set(jnp.diag(Vsi.flatten()))
-    return init_matrix
+    init_matrix = init_matrix.at[start_node:start_node+phs,start_node:start_node+phs].set(jnp.eye(3))#@jnp.diag(Vsr.flatten()))
+    init_matrix = init_matrix.at[start_node+phs:start_node+2*phs,start_node+phs:start_node+2*phs].set(jnp.eye(3))#jnp.diag(Vsi.flatten()))
+    b_out = jnp.vstack([Vsr, Vsi])
+    return init_matrix, b_out
 
 
 
-inits = 1*18
-uppers = jnp.zeros((18,1))
-lowers = uppers.copy()
-tot_upper = jnp.zeros((inits,1))
-tot_lower = tot_upper.copy()
-for n in range(1, 1 +1):
-    uppers = uppers.at[0:6,:].set(1200)
-    lowers = lowers.at[0:6,:].set(-1200)
-    uppers = uppers.at[6:12,:].set(4160**2)
-    lowers = lowers.at[6:12,:].set(0)
-    uppers = uppers.at[12:18,:].set(4160)
-    lowers = lowers.at[12:18,:].set(-4160)
-    tot_upper = tot_upper.at[18*(n-1):18*n,:].set(uppers)
-    tot_lower = tot_lower.at[18*(n-1):18*n,:].set(lowers)
-# b5, V4r, v3 = Quad_relax(tot_lower[12:15,0], tot_upper[12:15,0], ['a','b','c'])
-# print(b5)
-# print(V4r)
-# print(v3.shape)
-b1, zr1, v1, xr1, = McCor_relax(tot_lower[0:3,:], tot_upper[0:3,:], tot_lower[6:9,:], tot_upper[6:9,:], ['a','b','c'])
-# print('b',b1)
-# print('zr1', zr1)
-# print('v1',v1)
-# print('xr1',xr1.shape)
+# inits = 1*18
+# uppers = jnp.zeros((18,1))
+# lowers = uppers.copy()
+# tot_upper = jnp.zeros((inits,1))
+# tot_lower = tot_upper.copy()
+# for n in range(1, 1 +1):
+#     uppers = uppers.at[0:6,:].set(1200)
+#     lowers = lowers.at[0:6,:].set(-1200)
+#     uppers = uppers.at[6:12,:].set(4160**2)
+#     lowers = lowers.at[6:12,:].set(0)
+#     uppers = uppers.at[12:18,:].set(4160)
+#     lowers = lowers.at[12:18,:].set(-4160)
+#     tot_upper = tot_upper.at[18*(n-1):18*n,:].set(uppers)
+#     tot_lower = tot_lower.at[18*(n-1):18*n,:].set(lowers)
+# # b5, V4r, v3 = Quad_relax(tot_lower[12:15,0], tot_upper[12:15,0], ['a','b','c'])
+# # print(b5)
+# # print(V4r)
+# # print(v3.shape)
+# b1, zr1, v1, xr1, = McCor_relax(tot_lower[0:3,:], tot_upper[0:3,:], tot_lower[6:9,:], tot_upper[6:9,:], ['a','b','c'])
+# # print('b',b1)
+# # print('zr1', zr1)
+# # print('v1',v1)
+# # print('xr1',xr1.shape)
 """
 So I know that for my load, that I have two real mccormick relaxations, to imaginary, and two that are quadratic 
 and real.  Per each load I would like to stack them as such
@@ -458,72 +506,7 @@ v = V4r^2
 w = V4i^2
 I think I should make a McCormick class which makes this more callable
 """
-#we know that the voltage used for the load corresponds to the voltage at the bus its connected to
-#where we input the mccormick constraints into our matrix depends on which load we are on.
-        
-# phases = ['a','b','c']
-# num_nodes = 4
-# generators = 1
-# loads = 1
-
-# variables = []  # combined variable list
-# positions = {}  # dictionary to store ranges
-
-# # Node voltages
-# start = len(variables)
-# for n in range(1, num_nodes+1):
-#     for p in phases:
-#         variables.append(f"v{n}r{p}")
-#     for p in phases:
-#         variables.append(f"v{n}i{p}")
-# end = len(variables)
-# positions['lines'] = (start, end)
-
-# # Generator currents
-# start = len(variables)
-# for n in range(1, generators+1):
-#     for p in phases:
-#         variables.append(f"Igr{p}")
-#     for p in phases:
-#         variables.append(f"Igi{p}")
-# end = len(variables)
-# positions['generators'] = (start, end)
-
-# # Load currents
-# start = len(variables)
-# for n in range(1, loads+1):
-#     for p in phases:
-#         variables.append(f"Ilr{p}")
-#     for p in phases:
-#         variables.append(f"Ili{p}")
-# end = len(variables)
-# positions['loads'] = (start, end)
-
-# #McCormick Variables
-# start = len(variables)
-# for n in range(1, loads +1):
-#     for p in phases:
-#         variables.append(f"xr{p}")
-#     for p in phases:
-#         variables.append(f"yr{p}")
-#     for p in phases:
-#         variables.append(f"zr{p}")
-#     for p in phases:
-#         variables.append(f"xi{p}")
-#     for p in phases:
-#         variables.append(f"yi{p}")
-#     for p in phases:
-#         variables.append(f"zi{p}")
-#     for p in phases:
-#         variables.append(f"v{p}")
-#     for p in phases:
-#         variables.append(f"w{p}")
-# end = len(variables)
-# positions['Mc_Vars'] = (start,end)
-    
-    
-    
-# Zline = np.array([
+# Zline = jnp.array([
 #  [0.4576+1.078j, 0.1559 +0.5017j, 0.1535+0.3849j],
 #  [0.1559+0.5017j, 0.4666+1.0482j, 0.158+0.4236j],
 #  [0.1535+0.3849j, 0.158+0.4236j, 0.4615+1.0651j]
@@ -534,8 +517,7 @@ I think I should make a McCormick class which makes this more callable
 # line_one_two = Line('Line 3 to 4', 3, 4, 2500/5280, 3, Zline)
 # trans_two_three = Transformer('Transformer 2 to 3', 2, 3, 'Y-Y', 12470/4160, 6000000, 12470,0.01+0.06j)
 # load_4 = Load('Load 4', 4, 1800000, [0.9,0.9,0.9])
-
-
-# both_1 = [line for line in Line.all_lines if line.to_node == 1 and line.from_node == 1]
-# print(positions['generators'][0])
-# print(powerflow(num_nodes, variables, phases, positions))
+# alpha = connected_to(4)
+# for c in alpha:
+#     print(c)
+# print(alpha.type)

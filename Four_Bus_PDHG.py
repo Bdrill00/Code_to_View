@@ -78,7 +78,7 @@ for n in range(1, loads +1):
     lowers = lowers.at[12:18,:].set(-4160)
     tot_upper = tot_upper.at[18*(n-1):18*n,:].set(uppers)
     tot_lower = tot_lower.at[18*(n-1):18*n,:].set(lowers)
-print(len(positions))
+# print(len(positions))
     
 Zline = jnp.array([
  [0.4576+1.078j, 0.1559 +0.5017j, 0.1535+0.3849j],
@@ -90,17 +90,18 @@ gen_one = Generator('Node 1 Generator', 1, 12470, 3)
 line_one_two = Line('Line 1 to 2', 1, 2, 2000/5280, 3, Zline)
 line_one_two = Line('Line 3 to 4', 3, 4, 2500/5280, 3, Zline)
 trans_two_three = Transformer('Transformer 2 to 3', 2, 3, 'Y-Y', 12470/4160, 6000000, 12470,0.01+0.06j)
-load_4 = Load('Load 4', 4, 1800000, [0.9,0.9,0.9])
-
+load_4 = Load('Load 4', 4, [1800000, 1800000, 1800000], [0.9,0.9,0.9])
 
 both_1 = [line for line in Line.all_lines if line.to_node == 1 and line.from_node == 1]
-print(positions['generators'][0])
-print(type(powerflow(num_nodes, variables, phases, positions)))
-print(positions['Mc_Vars'])
-print(init_func(1,phases,vSlack,variables))
+# print(positions['generators'][0])
+# print(type(powerflow(num_nodes, variables, phases, positions)))
+# print(positions['Mc_Vars'])
+# print(init_func(1,phases,vSlack,variables))
 MC_mat, b_mat = McC_Load(tot_upper, tot_lower, variables, phases, positions['Mc_Vars'], 4)
-print(MC_mat)
+# print(MC_mat)
+
 A_view = jnp.vstack((init_func(1,phases,vSlack,variables),powerflow(num_nodes, variables, phases, positions)))
+print(MC_mat.shape, A_view.shape)
 np.savetxt("matrix.txt", A_view, fmt="%.3f", delimiter="\t")
 np.savetxt("MC_Matrix.txt", MC_mat, fmt="%.3f", delimiter="\t")
-print()
+# print()

@@ -48,6 +48,29 @@ Vsi = np.array([
 InitI = np.ones((3,1))
 Xinit = np.vstack((Vsr, Vsi, Vsr, Vsi, (1/nt)*Vsr, (1/nt)*Vsi, (1/nt)*Vsr, (1/nt)*Vsi, InitI, InitI, InitI, InitI, InitI, InitI))
 
+InitMag = np.array([VoltageH, VoltageH, VoltageH, #V1
+                    7106.546799,7139.706926,7120.76443,             #V2
+                    2247.6, 2269, 2256,           #V3
+                    1918, 2061, 1981,             #V4
+                    347.9, 323.7, 336.8,         #I1
+                    347.9, 323.7, 336.8,         #I1
+                    1042.8, 970.2, 1009.6]).reshape(-1,1) #I2
+InitAngle = np.array([0, -120, 120,
+                      -0.3391675422, -120.3439146, 119.6286917,
+                      -3.7, -123.5, 116.4,
+                      -9.1, -128.3, 110.9,
+                      -34.9, -154.2, 85,
+                      -34.9, -154.2, 85,
+                      -34.9, -154.2, 85]).reshape(-1,1)
+
+initReal = np.zeros((InitMag.shape[0], 1))
+initImag = np.zeros((InitMag.shape[0], 1))
+
+for i in range(initReal.shape[0]):
+    initReal[i] = InitMag[i]*np.cos(math.radians(InitAngle[i]))
+    initImag[i] = InitMag[i]*np.sin(math.radians(InitAngle[i]))
+
+
 ztbase = (Vupper**2)/kVAt #this is going to calculate the base 'z' for my transformer
 ztpu = 0.01+0.06j #per unit reactance of transformer per phase
 zt = ztpu*ztbase  #actual reactance of the lines given per unit measures and z_base
@@ -93,20 +116,20 @@ n = 3
 model.n = pyo.RangeSet(0, 2)
 
 #Define my pyomo variables for the OPF problem:
-model.V1r = Var(range(n), bounds=(-9000, 9000), initialize=12470)
-model.V1i = Var(range(n), bounds=(-9000, 9000), initialize=0)
-model.V2r = Var(range(n), bounds=(-9000, 9000), initialize=12000)
-model.V2i = Var(range(n), bounds=(-9000, 9000), initialize = 0)
-model.V3r = Var(range(n), bounds=(-3000, 3000), initialize=Vlower)
-model.V3i = Var(range(n), bounds=(-3000, 3000), initialize = 0)
-model.V4r = Var(range(n), bounds=(-3000, 3000), initialize=Vlower)
-model.V4i = Var(range(n), bounds=(-3000, 3000), initialize = 0)
-model.Islackr = Var(range(n), bounds=(-2000, 2000), initialize=0)
-model.Islacki = Var(range(n), bounds=(-2000, 2000), initialize=0)
-model.Ixr = Var(range(n), bounds=(-2000, 2000), initialize=0)
-model.Ixi = Var(range(n), bounds=(-2000, 2000), initialize=0)
-model.I2xr = Var(range(n), bounds=(-2000, 2000), initialize=0)
-model.I2xi = Var(range(n), bounds=(-2000, 2000), initialize=0)
+model.V1r = Var(range(n), bounds=(-9000, 9000), initialize=initReal[0:3,:])
+model.V1i = Var(range(n), bounds=(-9000, 9000), initialize=initImag[0:3,:])
+model.V2r = Var(range(n), bounds=(-9000, 9000), initialize=initReal[3:6,:])
+model.V2i = Var(range(n), bounds=(-9000, 9000), initialize=initImag[3:6,:])
+model.V3r = Var(range(n), bounds=(-3000, 3000), initialize=initReal[6:9,:])
+model.V3i = Var(range(n), bounds=(-3000, 3000), initialize=initImag[6:9,:])
+model.V4r = Var(range(n), bounds=(-3000, 3000), initialize=initReal[9:12,:])
+model.V4i = Var(range(n), bounds=(-3000, 3000), initialize=initImag[9:12,:])
+model.Islackr = Var(range(n), bounds=(-2000, 2000), initialize=initReal[12:15,:])
+model.Islacki = Var(range(n), bounds=(-2000, 2000), initialize=initImag[12:15,:])
+model.Ixr = Var(range(n), bounds=(-2000, 2000), initialize=initReal[15:18,:])
+model.Ixi = Var(range(n), bounds=(-2000, 2000), initialize=initImag[15:18,:])
+model.I2xr = Var(range(n), bounds=(-2000, 2000), initialize=initReal[18:21,:])
+model.I2xi = Var(range(n), bounds=(-2000, 2000), initialize=initImag[18:21,:])
 
 #dummy variable for testing replacement of nonlinearities in OPF
 model.z0 = Var(range(n), bounds = (-1100, 1100), initialize = 0)
@@ -184,16 +207,16 @@ def equality_constraint14(model, i):
     return sum(Gl34[i,j]*(model.V4i[j]-model.V3i[j]) for j in range(n)) + sum(Bl34[i,j]*(model.V4r[j] - model.V3r[j]) for j in range(n)) + \
         model.z1[i] ==0
 
-#define function which replace nonlinearity in equality constraint 13 and 14
-# def equality_constraint15a(model, i):
-#     return (PL*model.V4r[i] + QL*model.V4i[i]) == model.x0[i] + model.y0[i] # model.z0[i]*(model.w[i] + model.v[i])
+# define function which replace nonlinearity in equality constraint 13 and 14
+def equality_constraint15a(model, i):
+    return (PL*model.V4r[i] + QL*model.V4i[i]) == model.x0[i] + model.y0[i] # model.z0[i]*(model.w[i] + model.v[i])
 # def equality_constraint15b(model, i):
 #     return model.x0[i] == model.z0[i]*model.w[i]
 # def equality_constraint15c(model, i):
 #     return model.y0[i] == model.z0[i]*model.v[i]
 
-# def equality_constraint16a(model, i):
-#     return (PL*model.V4i[i] - QL*model.V4r[i]) == model.z1[i]*(model.w[i] + model.v[i]) #model.x1[i] + model.y1[i]
+def equality_constraint16a(model, i):
+    return (PL*model.V4i[i] - QL*model.V4r[i]) == model.x1[i] + model.y1[i]
 # def equality_constraint16b(model, i):
 #     return model.x1[i] == model.z1[i]*model.w[i]
 # def equality_constraint16c(model, i):
@@ -242,10 +265,11 @@ model.constraint13 = Constraint(model.n, rule=equality_constraint13)
 model.constraint14 = Constraint(model.n, rule=equality_constraint14)
 
 #Extra constraints for addition of dummy variables
-model.constraint15a = Constraint(model.n, rule = equality_constraint15a)
-model.constraint15b = Constraint(model.n, rule = equality_constraint15b)
-model.constraint15c = Constraint(model.n, rule = equality_constraint15c)
-model.constraint16a = Constraint(model.n, rule = equality_constraint16a)
+# model.constraint15a = Constraint(model.n, rule = equality_constraint15a)
+# model.constraint16a = Constraint(model.n, rule = equality_constraint16a)
+# model.constraint15b = Constraint(model.n, rule = equality_constraint15b)
+# model.constraint15c = Constraint(model.n, rule = equality_constraint15c)
+
 # model.constraint16b = Constraint(model.n, rule = equality_constraint16b)
 # model.constraint16c = Constraint(model.n, rule = equality_constraint16c)
 
@@ -260,40 +284,39 @@ Constraint_List5 = ['ineq_constr9', 'ineq_constr10', 'ineq_constr11'] #Per phase
 #This makes each name in the constraint lists a model.ConstraintList()
 #This allows for the assignment of multiple constraints to one list which can be accessed by name
 #Simply put, it is a method to iteratively define and add constraints to the model
-for name in Constraint_List0 + Constraint_List1 + Constraint_List2 + Constraint_List3 + Constraint_List4 + Constraint_List5:
-    setattr(model, name, ConstraintList())
+# for name in Constraint_List0 + Constraint_List1 + Constraint_List2 + Constraint_List3 + Constraint_List4 + Constraint_List5:
+#     setattr(model, name, ConstraintList())
     
-#This is where the constraints get added to the model.  Each Constraint_ListX[i] gets assigned the three McCormick constraints corresponding to
-#the 'i'th 'v' or 'w' variable
-for i in range(n):
-    constraints = QuadMcCor(model.V4r[i], model.w[i], XU = upperV4[i], XL = lowerV4[i])    #quadratic mccormick for V4r i iterating per phase
-    for c in constraints:
-        getattr(model, Constraint_List0[i]).add(c)
+# #This is where the constraints get added to the model.  Each Constraint_ListX[i] gets assigned the three McCormick constraints corresponding to
+# #the 'i'th 'v' or 'w' variable
+# for i in range(n):
+#     constraints = QuadMcCor(model.V4r[i], model.w[i], XU = upperV4[i], XL = lowerV4[i])    #quadratic mccormick for V4r i iterating per phase
+#     for c in constraints:
+#         getattr(model, Constraint_List0[i]).add(c)
         
-    constraints = QuadMcCor(model.V4i[i], model.v[i], XU = upperV4[i], XL = lowerV4[i])    #quadratic mccormick for V4i i iterating per phase
-    for c in constraints:
-        getattr(model, Constraint_List1[i]).add(c)
+#     constraints = QuadMcCor(model.V4i[i], model.v[i], XU = upperV4[i], XL = lowerV4[i])    #quadratic mccormick for V4i i iterating per phase
+#     for c in constraints:
+#         getattr(model, Constraint_List1[i]).add(c)
 
-#For this constraint we have X0 = z0*w in z = xy form
+# #For this constraint we have X0 = z0*w in z = xy form
          
-    constraints = McCormick(model.z0[i], model.w[i], model.x0[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
-    for c in constraints:
-        getattr(model, Constraint_List2[i]).add(c)
+#     constraints = McCormick(model.z0[i], model.w[i], model.x0[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
+#     for c in constraints:
+#         getattr(model, Constraint_List2[i]).add(c)
         
-#For this constraint we have Y0 = z0*v in z = xy form  
-    constraints = McCormick(model.z0[i], model.v[i], model.y0[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
-    for c in constraints:
-        getattr(model, Constraint_List3[i]).add(c)
+# #For this constraint we have Y0 = z0*v in z = xy form  
+#     constraints = McCormick(model.z0[i], model.v[i], model.y0[i], XU = Z_u[i], XL = Z_l[i], YU = V_u[i], YL = V_l[i])   #McCormick for z*V4i^2 = z*v= y0
+#     for c in constraints:
+#         getattr(model, Constraint_List3[i]).add(c)
     
-    constraints = McCormick(model.z1[i], model.w[i], model.x1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
-    for c in constraints:
-        getattr(model, Constraint_List4[i]).add(c)
+#     constraints = McCormick(model.z1[i], model.w[i], model.x1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])  #McCormick for z*V4r^2 = z*w =x0
+#     for c in constraints:
+#         getattr(model, Constraint_List4[i]).add(c)
     
-    constraints = McCormick(model.z1[i], model.v[i], model.y1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])   #McCormick for z*V4i^2 = z*v= y0
-    for c in constraints:
-        getattr(model, Constraint_List5[i]).add(c)
-    
-    
+#     constraints = McCormick(model.z1[i], model.v[i], model.y1[i], XU = Z_u[i], XL = Z_l[i], YU = W_u[i], YL = W_l[i])   #McCormick for z*V4i^2 = z*v= y0
+#     for c in constraints:
+#         getattr(model, Constraint_List5[i]).add(c)
+
 #choosing the solver and some settings to adjust how long the code will run for
 solver = SolverFactory('gurobi')
 # solver.options['MaxIter'] = 1000

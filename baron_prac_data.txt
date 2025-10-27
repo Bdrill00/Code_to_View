@@ -1,61 +1,33 @@
-Solver command line: ['C:\\Program Files\\baron\\baron.exe', 'C:\\Users\\benja\\AppData\\Local\\Temp\\tmp4iwlmfbj.pyomo.bar']
+Solver command line: []
 
-===========================================================================
- BARON version 25.3.19. Built: WIN-64 2025-03-19 22:18:01         
- Running on machine BENLT
+Read LP format model from file C:\Users\benja\AppData\Local\Temp\tmp947bduxa.pyomo.lp
+Reading time = 0.01 seconds
+x1: 72 rows, 55 columns, 444 nonzeros
+Gurobi Optimizer version 12.0.3 build v12.0.3rc0 (win64 - Windows 11.0 (26100.2))
 
- BARON is a product of The Optimization Firm.
- For information on BARON, see https://minlp.com/about-baron
- Licensee: 
- Benjamin Drillings at University of Vermont, Benjamin.Drillings@uvm.edu.
+CPU model: AMD Ryzen 7 5825U with Radeon Graphics, instruction set [SSE2|AVX|AVX2]
+Thread count: 8 physical cores, 16 logical processors, using up to 16 threads
 
- If you publish work using this software, please cite publications from
- https://minlp.com/baron-publications, such as: 
+Optimize a model with 72 rows, 55 columns and 444 nonzeros
+Model fingerprint: 0x7f767f49
+Coefficient statistics:
+  Matrix range     [2e-01, 1e+08]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 3e+09]
+  RHS range        [4e+03, 1e+11]
+Warning: Model contains large matrix coefficients
+Warning: Model contains large rhs
+Warning: Model contains large bounds
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Presolve removed 48 rows and 25 columns
+Presolve time: 0.01s
+Presolved: 24 rows, 30 columns, 252 nonzeros
 
- Zhang, Y. and N. V. Sahinidis, Solving continuous and discrete
- nonlinear programs with BARON, Comput Optim Appl (2024). 
- https://doi.org/10.1007/s10589-024-00633-0
-===========================================================================
- This BARON run may utilize the following subsolver(s)
- For LP/MIP/QP: CLP/CBC                                         
- For NLP: IPOPT, FILTERSQP
-===========================================================================
- Doing local search
- Solving bounding LP
- Starting multi-start local search
- Done with local search
-===========================================================================
-  Iteration       Time (s)     Mem   Lower bound     Upper bound   Progress
-          1           0.52    21MB     1.00000        0.100000E+52    NA
-*         3           0.88    78MB     1.00000        0.100000E+08    NA
-      24203          30.39    78MB    0.600000E+07    0.100000E+08   25.30%
-      26184          33.23    78MB    0.600000E+07    0.100000E+08   25.30%
-      51943          62.42    78MB    0.600000E+07    0.100000E+08   25.30%
-      75224          92.28    78MB    0.600000E+07    0.100000E+08   25.30%
-      96010         122.03    78MB    0.600000E+07    0.100000E+08   25.30%
-     116067         151.62    78MB    0.600000E+07    0.100000E+08   25.30%
-     133699         181.02    78MB    0.600000E+07    0.100000E+08   25.30%
-     146347         210.30    78MB    0.600000E+07    0.100000E+08   25.30%
-     158321         239.98    78MB    0.600000E+07    0.100000E+08   25.30%
-     170079         269.41    78MB    0.600000E+07    0.100000E+08   25.30%
-     181908         298.97    78MB    0.600000E+07    0.100000E+08   25.30%
-     193284         328.55    78MB    0.600000E+07    0.100000E+08   25.30%
-     207362         358.19    78MB    0.600000E+07    0.100000E+08   25.30%
-     221509         387.56    78MB    0.600000E+07    0.100000E+08   25.30%
-     235077         417.08    78MB    0.600000E+07    0.100000E+08   25.30%
-     248176         446.69    78MB    0.600000E+07    0.100000E+08   25.30%
-     260478         476.17    78MB    0.600000E+07    0.100000E+08   25.30%
-     268496         500.00    78MB    0.600000E+07    0.100000E+08   25.30%
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0    1.0000000e+00   1.698339e+01   0.000000e+00      0s
+      14    1.0000000e+00   0.000000e+00   0.000000e+00      0s
 
-                    *** Max. allowable time exceeded ***      
-
- Wall clock time:                  1095.49
- Total CPU time used:               500.00
-
- Total no. of BaR iterations:  268496
- Best solution found at node:       3
- Max. no. of nodes in memory:     103
- 
- All done
-===========================================================================
+Solved in 14 iterations and 0.01 seconds (0.00 work units)
+Optimal objective  1.000000000e+00
 
