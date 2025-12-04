@@ -20,31 +20,31 @@ class Line:
         self.line_length = length
         self.phases = phases
         self.c_type = 'Line'
-        self.imp_mat = Imp_mat
+        self.imp_mat = (Imp_mat * self.line_length).astype(jnp.complex128)
+        I = jnp.eye(self.imp_mat.shape[0], dtype=jnp.complex128)
+        self.ad_mat = jnp.linalg.solve(self.imp_mat, I)
+
         Line.all_lines.append(self)
-        #What I would like to do here is take the real and imaginary voltages from the to and from nodes and create a matrix
-        #showing the directional current flow
+        
     def admit_mat(self, in_out):
-        zLine = self.imp_mat*self.line_length
-        yLine = jnp.linalg.inv(zLine)
-        G_line = yLine.real
-        B_line = yLine.imag
+        G_line = jnp.round(self.ad_mat.real, 12)
+        B_line = jnp.round(self.ad_mat.imag, 12)
+
         if in_out == 'out':
-            #                    n1r      n2r      n1i      n2i
-            node_1 = jnp.block([[G_line,-B_line],
-                                [B_line, G_line]]).astype(jnp.float64)
-            node_2 = jnp.block([[-G_line,B_line],
-                                [-B_line,-G_line]]).astype(jnp.float64)
+            node_1 = jnp.block([[G_line, -B_line],
+                                [B_line,  G_line]])
+            node_2 = jnp.block([[-G_line,  B_line],
+                                [-B_line, -G_line]])
+            return node_1.astype(jnp.float64), node_2.astype(jnp.float64)
         elif in_out == 'in':
-            #                    n1r      n2r      n1i      n2i
-            node_1 = jnp.block([[-G_line,B_line,],
-                                [-B_line,-G_line]]).astype(jnp.float64)
-            
-            node_2 = jnp.block([[G_line,-B_line],
-                                [B_line,G_line]]).astype(jnp.float64)
+            node_1 = -jnp.block([[G_line, -B_line],
+                                [B_line,  G_line]])
+            node_2 = -jnp.block([[-G_line,  B_line],
+                                [-B_line, -G_line]])
+            return node_1.astype(jnp.float64), node_2.astype(jnp.float64)
         else:
-            print('error')
-        return node_1, node_2    
+            raise ValueError("in_out must be 'in' or 'out'")
+
     def __repr__(self):
         base = {"id": self.id, "from_node": self.from_node,"to_node": self.to_node,"length": self.line_length,"phases": self.phases}
         return str(base)
@@ -61,33 +61,36 @@ class Transformer:
         self.c_type = 'Transformer'
         self.vRate = Volt_Rate
         self.zpu = Z_PU
-        Transformer.all_trans.append(self)
-    def admit_mat(self, in_out):
         Ztbase = jnp.array((self.vRate)**2 / self.t_rate, dtype=jnp.float64)
         zt = Ztbase * jnp.array(self.zpu, dtype=jnp.complex128)
-        Ad_mat = (zt*jnp.eye(3,dtype=jnp.float64))
-        Ytr = jnp.linalg.inv(Ad_mat)
-        Gtr = Ytr.real
-        Btr = Ytr.imag
+        self.imp_mat = (zt*jnp.eye(3,dtype=jnp.float64))
+        self.ad_mat = jnp.linalg.inv(self.imp_mat)
+        Transformer.all_trans.append(self)
+    def admit_mat(self, in_out):
+        
+        Gtr = self.ad_mat.real
+        Btr = self.ad_mat.imag
         # tol = 1e-12
         # Gtr = jnp.where(jnp.abs(Gtr) < tol, 0.0, Gtr)
         # Btr = jnp.where(jnp.abs(Btr) < tol, 0.0, Btr)
         one_nt = jnp.array(1/self.nt, dtype=jnp.float64)
-        one_nt_sqr = one_nt**2
-        nt = self.nt
-        if in_out == 'out':
-            T_flow_node_1 = jnp.block([[Gtr, -Btr],
+        one_sqnt = jnp.array(1/self.nt**2, dtype=jnp.float64)
+        
+        if in_out == 'in':
+            T_flow_node_1 = -one_nt*jnp.block([[Gtr, -Btr],
                                        [Btr,Gtr]]).astype(jnp.float64)
-            T_flow_node_2 = jnp.block([[-(nt)*Gtr,(nt)*Btr],
-                                       [-(nt)*Btr,-(nt)*Gtr]]).astype(jnp.float64)
-        elif in_out == 'in':
-            T_flow_node_1 = -(nt)*jnp.block([[Gtr, -Btr],
+            T_flow_node_2 = -jnp.block([[-Gtr,Btr],
+                                       [-Btr,-Gtr]]).astype(jnp.float64)
+            return T_flow_node_1, T_flow_node_2
+        elif in_out == 'out':
+            T_flow_node_1 = one_sqnt*jnp.block([[Gtr, -Btr],
                                        [Btr,Gtr]]).astype(jnp.float64)
-            T_flow_node_2 = -(nt)*jnp.block([[-(nt)*Gtr,(nt)*Btr],
-                                       [-(nt)*Btr,-(nt)*Gtr]]).astype(jnp.float64)
+            T_flow_node_2 = one_nt*jnp.block([[-Gtr,Btr],
+                                       [-Btr,-Gtr]]).astype(jnp.float64)
+            return T_flow_node_1, T_flow_node_2
         else:
             print('error1')
-        return T_flow_node_1, T_flow_node_2
+        
     
     def __repr__(self):
         base = {"id": self.id, "from_node": self.from_node,"to_node": self.to_node,"Transformer Type": self.transformer_type,"Turns Ratio": self.nt}
@@ -109,14 +112,14 @@ class Load:
     def current_matrix(self,in_out):
         if in_out == 'in':
             Load_mat1 = -jnp.eye(3)
-            Load_mat2 = -jnp.block([[jnp.diag(self.realP), jnp.diag(self.imagQ)],
-                                   [-jnp.diag(self.imagQ), jnp.diag(self.realP)]]).astype(jnp.float64)
-            Load_mat3 = -jnp.block([[-jnp.eye(3), -jnp.eye(3)]]).astype(jnp.float64)
-        elif in_out == 'out':
-            Load_mat1 = jnp.eye(3)
             Load_mat2 = jnp.block([[jnp.diag(self.realP), jnp.diag(self.imagQ)],
                                    [-jnp.diag(self.imagQ), jnp.diag(self.realP)]]).astype(jnp.float64)
-            Load_mat3 = jnp.block([[-jnp.eye(3), -jnp.eye(3)]]).astype(jnp.float64).astype(jnp.float64)
+            Load_mat3 = -jnp.block([[jnp.eye(3), jnp.eye(3)]]).astype(jnp.float64)
+        elif in_out == 'out':
+            Load_mat1 = jnp.eye(3)
+            Load_mat2 = -jnp.block([[jnp.diag(self.realP), jnp.diag(self.imagQ)],
+                                   [-jnp.diag(self.imagQ), jnp.diag(self.realP)]]).astype(jnp.float64)
+            Load_mat3 = jnp.block([[jnp.eye(3), jnp.eye(3)]]).astype(jnp.float64).astype(jnp.float64)
         else:
             print('error')
         return Load_mat1, Load_mat2, Load_mat3
@@ -139,8 +142,8 @@ class Generator:
     def current_matrix(self, in_out):
         #if we consider current leaving and entering
         if in_out == 'in':
-            Gen_mat = jnp.block([[-jnp.eye(3), jnp.zeros((3,3))],
-                                [jnp.zeros((3,3)), -jnp.eye(3)]]).astype(jnp.float64)
+            Gen_mat = -jnp.block([[jnp.eye(3), jnp.zeros((3,3))],
+                                [jnp.zeros((3,3)), jnp.eye(3)]]).astype(jnp.float64)
         elif in_out == 'out':
             Gen_mat = jnp.block([[jnp.eye(3), jnp.zeros((3,3))],
                                 [jnp.zeros((3,3)), jnp.eye(3)]]).astype(jnp.float64)
@@ -233,7 +236,7 @@ def Quad_relax(XL, XU, phases):
     for i in range(n):
         const = const.at[i,:].set(jnp.array([XU[i]**2, 2*XU[i], -1]))
         const = const.at[n+i,:].set(jnp.array([XL[i]**2, 2*XL[i], -1]))
-        const = const.at[2*n+i,:].set(jnp.array([-XL[i]*XU[i], -(XU[i]+XL[i]), 1]))
+        const = const.at[2*n+i,:].set(jnp.array([-XL[i]*XU[i], -(XU[i]-XL[i]), 1]))
     for i in range(3):
         b = b.at[i*n:(i+1)*n,0].set(const[i*n:(i+1)*n,0])
         x = x.at[i*n:(i+1)*n,:].set(jnp.eye(n) * const[i*n:(i+1)*n,1:2])
@@ -278,6 +281,8 @@ def powerflow(nodes,variables,phases,positions):
     """
     A_mat = jnp.zeros((0, len(variables)), dtype=jnp.float64)
     phs = len(phases)
+    list_nodes = [1]
+    # for i in list_nodes:
     for i in range(1, nodes+1):
         connected_nodes = connected_to(i)
         if any ('Load' in item.id for item in connected_nodes):
@@ -302,10 +307,14 @@ def powerflow(nodes,variables,phases,positions):
                     #Now this is where I extract the admittance or current matrix from the respective instance to put into my A matrix
                     if instance.c_type == 'Line':
                         line_mat1, line_mat2 = instance.admit_mat(in_out = 'out')
+                        # if instance.from_node ==1:
+                        #     test_mat = line_mat1
+                        #     store=instance.line_length
                         index_val1 = 6*(instance.from_node - 1)
                         index_val2 = 6*(instance.to_node - 1)
                         node_mat = node_mat.at[0:2*phs,index_val1:index_val1+6].set(line_mat1)
                         node_mat = node_mat.at[0:2*phs,index_val2:index_val2+6].set(line_mat2)
+                        
                         # b = jnp.zeros((2*len(phases),1))
                     elif instance.c_type == 'Transformer':
                         t_mat1, t_mat2 = instance.admit_mat('out')
@@ -350,7 +359,7 @@ def powerflow(nodes,variables,phases,positions):
             eq_mat = eq_mat + node_mat
             # b = b_out+b
         A_mat = jnp.vstack([A_mat,eq_mat])
-    return A_mat #, b
+    return A_mat #, test_mat,store
 """ 
 P*V4r + QV4i = z(V4r^2+V4i^2) = z(w+v) = x+y 
 x = zv
@@ -401,34 +410,23 @@ def McC_Load(upperBs, lowerBs, variables, phases, position_matrix,load_node):
     # num_loads = len(Load.all_loads)
     #key for each of the variables:xr, yr, zr, zi, yi, zi, vi, wi are numbered 0-7
      #so the order I will do the upper and lower bounds will be zr, zi, v, w, Vr, Vi
+     # zr, zi, v, w, Vr, Vi
     b1, zr1, v1, xr1, = McCor_relax(lowerBs[0:3,:], upperBs[0:3,:], lowerBs[6:9,:], upperBs[6:9,:],phases)
     temp_mat0, big_b0= MC_Stack(temp_mat, big_b, position_matrix,(0*4*phs),2,6,0,zr1,v1,xr1,b1,phs)
-    temp_mat +=temp_mat0
-    big_b += big_b0
-    b2, zr2, w1, yr1, = McCor_relax(lowerBs[0:3,:], upperBs[3:6,:], lowerBs[9:12,:], upperBs[9:12,:],phases)
+    b2, zr2, w1, yr1, = McCor_relax(lowerBs[0:3,:], upperBs[0:3,:], lowerBs[9:12,:], upperBs[9:12,:],phases)
     temp_mat1, big_b1 = MC_Stack(temp_mat0, big_b0,position_matrix,1*4*phs,2,7,1,zr2, w1, yr1,b2,phs)
-    temp_mat +=temp_mat1
-    big_b += big_b1
     b3, zi1, v2, xi2, = McCor_relax(lowerBs[3:6,:], upperBs[3:6,:], lowerBs[6:9,:], upperBs[6:9,:],phases)
     temp_mat2, big_b2 = MC_Stack(temp_mat1, big_b1,position_matrix,2*4*phs,5,6,3,zi1,v2,xi2,b3,phs)
-    temp_mat +=temp_mat2
-    big_b += big_b2
     b4, zi2, w2, yi2, = McCor_relax(lowerBs[3:6,:], upperBs[3:6,:], lowerBs[9:12,:], upperBs[9:12,:],phases)
     temp_mat3, big_b3 = MC_Stack(temp_mat2, big_b2,position_matrix,3*4*phs,5,7,4,zi2,w2,yi2,b4,phs)
-    temp_mat +=temp_mat3
-    big_b += big_b3
     b5, Vr, v3 = Quad_relax(lowerBs[12:15,0], upperBs[12:15,0], phases)
-    temp_mat4, big_b4 = Quad_Stack(temp_mat3, big_b3,4*4*phs,V_indx, position_matrix[0]+6*phs, Vr, v3, b5,phs)
-    temp_mat +=temp_mat4
-    big_b += big_b4
+    temp_mat4, big_b4 = Quad_Stack(temp_mat3, big_b3,16*phs,V_indx, position_matrix[0]+6*phs, Vr, v3, b5,phs)
     b6, Vi, w3 = Quad_relax(lowerBs[15:18,0], upperBs[15:18,0], phases)
     # print(w3)
-    temp_mat5, big_b5 = Quad_Stack(temp_mat4, big_b4,4*4*phs+3*phs,V_indx+phs,position_matrix[0]+7*phs, Vi, w3, b6,phs)
+    temp_mat5, big_b5 = Quad_Stack(temp_mat4, big_b4,16*phs+3*phs,V_indx+phs,position_matrix[0]+7*phs, Vi, w3, b6,phs)
         #order xr, yr, zr, xi, yi, zi, v, w
         #have to figure out how to stamp Vr, Vi
-    temp_mat +=temp_mat5
-    big_b += big_b5
-    return temp_mat, big_b
+    return temp_mat5, big_b5
 
 def init_func(node,phases,Vupper,variables):
     start_node = variables.index(f"v{node}ra")

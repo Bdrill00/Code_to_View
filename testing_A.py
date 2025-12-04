@@ -1,22 +1,45 @@
 """ 
-Ok, hey there ben.  What we need to do is the following and head straight into it
-1) We need to verify that the A and A-hat matrix are correct
-    a)Add in code such that the 
+Ok Ben, when we finish with system theory tomorrow we are going to need to dive in and figure out where our mistake was with stamping this god forsaken A matrix
+Lets check to see if its the A matrix or both 
+Then we need to figure out which equations it is.  We can take it line by line if necessary, slowly adding in equations until it breaks
+d
 """
 
 from pyomo.environ import *
 import pyomo.environ as pyo
+from pyomo.environ import Suffix
 import numpy as np
 from numpy.linalg import solve
 import matplotlib.pyplot as plt
 import sympy as sp
 from sympy import sqrt, atan, Function, lambdify, symbols, Matrix
 import math
-import math
 import jax
 import jax.numpy as jnp
 from Class_4_Bus import* #Line, Transformer, Generator, Load, powerflow
-
+def upper_lower(num_vars,pos):
+    #v1r,v1i,v2r,v2i,....,v4r,v4i, Islackr, Islacki, xr, yr, zr, xi, yi, zi, v, w
+    Vupperb = 12470/jnp.sqrt(3)
+    Vupperb2 = 4160/jnp.sqrt(3)
+    Iupperb = 1200
+    upper_bs = jnp.zeros(num_vars)
+    lower_bs = upper_bs.copy()
+    upper_bs = upper_bs.at[pos['lines'][0]:12].set(jnp.ones(12)*(Vupperb))
+    lower_bs = lower_bs.at[pos['lines'][0]:12].set(jnp.ones(12)*(-Vupperb))
+    upper_bs = upper_bs.at[12:pos['lines'][1]].set(jnp.ones(12)*(Vupperb2))
+    lower_bs = lower_bs.at[12:pos['lines'][1]].set(jnp.ones(12)*(-Vupperb2))
+    upper_bs = upper_bs.at[pos['generators'][0]:pos['generators'][1]].set(jnp.ones(6)*(Iupperb))
+    lower_bs = lower_bs.at[pos['generators'][0]:pos['generators'][1]].set(jnp.ones(6)*(-Iupperb))
+    upper_bs = upper_bs.at[pos['Mc_Vars'][0]:pos['Mc_Vars'][0]+6].set(jnp.ones(6)*(Iupperb*Vupperb*Vupperb))
+    lower_bs = lower_bs.at[pos['Mc_Vars'][0]:pos['Mc_Vars'][0]+6].set(-jnp.ones(6)*(Iupperb*Vupperb*Vupperb))
+    upper_bs = upper_bs.at[pos['Mc_Vars'][0]+6:pos['Mc_Vars'][0]+9].set(jnp.ones(3)*(Iupperb))
+    lower_bs = lower_bs.at[pos['Mc_Vars'][0]+6:pos['Mc_Vars'][0]+9].set(jnp.ones(3)*(-Iupperb))
+    upper_bs = upper_bs.at[pos['Mc_Vars'][0]+9:pos['Mc_Vars'][0]+15].set(jnp.ones(6)*(Iupperb*Vupperb2*Vupperb2))
+    lower_bs = lower_bs.at[pos['Mc_Vars'][0]+9:pos['Mc_Vars'][0]+15].set(-jnp.ones(6)*(Iupperb*Vupperb2*Vupperb2))
+    upper_bs = upper_bs.at[pos['Mc_Vars'][0]+15:pos['Mc_Vars'][0]+18].set(jnp.ones(3)*(Iupperb))
+    lower_bs = lower_bs.at[pos['Mc_Vars'][0]+15:pos['Mc_Vars'][0]+18].set(jnp.ones(3)*(-Iupperb))
+    upper_bs = upper_bs.at[pos['Mc_Vars'][0]+18:pos['Mc_Vars'][1]].set(jnp.ones(6)*(Vupperb2*Vupperb2))
+    return upper_bs, lower_bs
 def states(num_nodes,generators,loads,phases):
     # num_nodes = 4
     # generators = 1
@@ -141,23 +164,18 @@ def initialization(phases):
     for i in range(0, len(initReal), len(phases)):
         result = result.at[2*i:2*i+len(phases)].set(initReal[i:i+3].reshape(-1))
         result = result.at[2*i+len(phases):2*i+2*len(phases)].set(initImag[i:i+3].reshape(-1))
-        
-    return vwxyz_vec,initReal,initImag,result
+    result = result.reshape(-1,1)
+    stacked_vec = jnp.vstack([result, vwxyz_vec])
+    return stacked_vec
 
 
 phases = ['a','b','c']
-vwxyz_vec, initReal, initImag, result_vec = initialization(phases)
-result_vec = result_vec.reshape(-1,1)
-stacked = jnp.vstack([result_vec, vwxyz_vec])
-# print(stacked[18:24,:])
-# print(vwxyz_vec)
-
+stacked = initialization(phases)
+# result_vec = result_vec.reshape(-1,1)
+# stacked = jnp.vstack([result_vec, vwxyz_vec])
 
 #result is now init conditions where we have v1r, v1i, v2r, v2i,...., Ilr, Ili
 variables, num_nodes, positions, tot_upper, tot_lower = states(4,1,1,phases)
-# print(positions['Mc_Vars'])
-# print(len(positions))
-    
 Zline = jnp.array([
  [0.4576+1.078j, 0.1559 +0.5017j, 0.1535+0.3849j],
  [0.1559+0.5017j, 0.4666+1.0482j, 0.158+0.4236j],
@@ -166,65 +184,93 @@ Zline = jnp.array([
 
 gen_one = Generator('Node 1 Generator', 1, 12470, 3)
 line_one_two = Line('Line 1 to 2', 1, 2, 2000/5280, 3, Zline)
-line_one_two = Line('Line 3 to 4', 3, 4, 2500/5280, 3, Zline)
+line_three_four = Line('Line 3 to 4', 3, 4, 2500/5280, 3, Zline)
 nt_ratio = jnp.array(12470, dtype=jnp.float64) / jnp.array(4160, dtype=jnp.float64)
 zpu = jnp.array(0.01 + 0.06j, dtype=jnp.complex128)
 trans_two_three = Transformer('Transformer 2 to 3', 2, 3, 'Y-Y', nt_ratio, 6000000, 12470,zpu)
 load_4 = Load('Load 4', 4, [1800000, 1800000, 1800000], [0.9,0.9,0.9])
-# A_matrix = powerflow(num_nodes, variables, phases, positions)
-# MC_mat, b_mat = McC_Load(tot_upper, tot_lower, variables, phases, positions['Mc_Vars'], 4)
+
 MC_mat, b_mat = McC_Load(tot_upper, tot_lower, variables, phases, positions['Mc_Vars'], 4)
-# print(MC_mat)
+
 init_vs, bees = init_func(1,phases,12470 / jnp.sqrt(3),variables)
-A_view = jnp.vstack((init_vs,powerflow(num_nodes, variables, phases, positions)))
+A_matrix = powerflow(num_nodes, variables, phases, positions)
+# A_matrix, node_mat_test,store = powerflow(num_nodes, variables, phases, positions)
+A_view = jnp.vstack((init_vs,A_matrix))
 b_vee = jnp.vstack([bees,jnp.zeros((A_view.shape[0]-6,1))])
+
 # print(MC_mat.shape, A_view.shape)
 np.savetxt("matrix.txt", A_view, fmt="%.3f", delimiter="\t")
 np.savetxt("MC_Matrix.txt", MC_mat, fmt="%.3f", delimiter="\t")
+# np.savetxt("test_txt.txt", node_mat_test, fmt="%.3f", delimiter="\t")
 
+
+#####################################################################################################################
+
+all_upper, all_lower = upper_lower(len(variables),positions)
 model = ConcreteModel()
 
-upper_bounds = stacked +10
-lower_bounds = stacked-10
-
-stacked_np = np.array(stacked)
-lower_np = np.array(lower_bounds)
-upper_np = np.array(upper_bounds)
+pf_sol = np.array(stacked)
+lower_np = np.array(all_lower)
+upper_np = np.array(all_upper)
 
 b = np.array(b_vee)
-lenInit = len(stacked_np)
+lenInit = len(pf_sol)
 A_np = np.array(A_view)
-model.obj = Objective(expr =1)
+
 bhat = np.array(b_mat)
 Ahat = np.array(MC_mat)
 
-# Bounds function must accept (model, index)
+e_zra = np.zeros((A_np.shape[1],1))
+var_to_list = list(variables)[positions['Mc_Vars'][0]+7]
+e_zra[positions['Mc_Vars'][0]+7, 0] = 1.0# Bounds function must accept (model, index)
+print(var_to_list)
 def bounds_rule(model, i):
     return float(lower_np[i].item()), float(upper_np[i].item())
 
 # Initialize function must accept (model, index)
 def init_rule(model, i):
-    return float(stacked_np[i].item())
+    return float(pf_sol[i].item())
 
 model.n = range(A_np.shape[0])  # or Set(initialize=range(lenInit))
-
-model.x = Var(
-    range(lenInit),
-    bounds=bounds_rule,
-    initialize=init_rule
-)
+model.m = range(Ahat.shape[0])
+model.x = Var(range(lenInit),bounds=bounds_rule,initialize=init_rule)
+model.obj=Objective(expr = e_zra.T@model.x)
 def equality_constraint1(model, i):
     return A_np[i,:]@model.x == b[i].item()
 def inequality_constraint1(model, i):
     return Ahat[i,:]@model.x <= bhat[i].item()
 
 model.constraint1 = Constraint(model.n, rule=equality_constraint1)
-model.constraint2 = Constraint(model.n, rule=inequality_constraint1)
+model.constraint2 = Constraint(model.m, rule=inequality_constraint1)
+model.dual = Suffix(direction=Suffix.IMPORT)
 solver = SolverFactory('gurobi')
 result = solver.solve(model, tee=True, logfile="baron_prac_data.txt", keepfiles = True)  # 'tee=True' will display solver output in the terminal
 
-model.display()
+# model.display()
 # print(variables)
 # print(positions['loads'])
 # print(load_4.imagQ)
+con1dual = []
+con2dual = []
+for i in model.constraint1:
+    con1dual.append(model.dual[model.constraint1[i]])
+for i in model.constraint2:
+    con2dual.append(model.dual[model.constraint2[i]])
 
+
+# print(tran_mat1)
+# print(tran_mat2)
+print("Dual of equality constraint:", con1dual, len(con1dual), A_np.shape)
+print("Dual of inequality constraint:", con2dual,len(con2dual), Ahat.shape)
+# for i in b_mat:
+#     print(i)
+# line_mat1, line_mat2 = line_one_two.admit_mat(in_out = 'out')
+# print(line_mat1)
+# print(line_mat2)
+# for i in stacked:
+#     print(i)
+# print(line_one_two.line_length)
+# print(store)
+# print(2000/5280)
+for i in model.x:
+    print(model.x[i].value)
